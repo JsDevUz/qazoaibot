@@ -95,7 +95,17 @@ class ReminderService {
             const status = record[`${prayerName}_status`];
             
             if (status === 'pending') {
-                await this.sendPendingPrayerReminder(user, prayerName);
+                // Keyingi namoz vaqti kirdimi yoki yo'qligini tekshiramiz
+                const nextPrayerIndex = this.getNextPrayerIndex(prayerName);
+                const nextPrayer = this.getPrayerByIndex(nextPrayerIndex);
+                
+                if (nextPrayer && this.isPrayerTime(currentTime, times[nextPrayer])) {
+                    // Keyingi namoz vaqti kirib bo'lgan - missed eslatma yuboramiz
+                    await this.sendMissedPrayerReminder(user, prayerName);
+                } else {
+                    // Hali vaqt bor - later eslatma yuboramiz
+                    await this.sendPendingPrayerReminder(user, prayerName);
+                }
             } else if (status === 'missed') {
                 continue;
             }
@@ -143,7 +153,7 @@ class ReminderService {
             `Har 10 daqiqada so'rab boramiz`,
             Markup.inlineKeyboard([
                 [Markup.button.callback('✅ Ha, o\'qidim', `prayer_${prayerName}_read`)],
-                [Markup.button.callback('❌ Yo\'q, endi', `prayer_${prayerName}_missed`)]
+                [Markup.button.callback('⏰ Keyinroq', `prayer_${prayerName}_later`)]
             ])
         );
     }
@@ -196,6 +206,17 @@ class ReminderService {
         }
         
         return missed;
+    }
+
+    getNextPrayerIndex(prayerName) {
+        const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+        const currentIndex = prayers.indexOf(prayerName);
+        return currentIndex < prayers.length - 1 ? currentIndex + 1 : -1;
+    }
+
+    getPrayerByIndex(index) {
+        const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+        return index >= 0 && index < prayers.length ? prayers[index] : null;
     }
 
     async getPrayerTimes(userId, date) {

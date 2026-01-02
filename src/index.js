@@ -605,11 +605,13 @@ class QazoBot {
                 
                 if (action === 'read') {
                     await this.prayerService.updatePrayerStatus(userId, new Date().toISOString().split('T')[0], prayer, 'read');
-                    await ctx.reply(`✅ ${prayer} namozi o'qilgan deb belgilandi!`);
+                    await ctx.editMessageText(`✅ ${prayer} namozi o'qilgan deb belgilandi!`);
                 } else if (action === 'missed') {
                     await this.prayerService.updatePrayerStatus(userId, new Date().toISOString().split('T')[0], prayer, 'missed');
                     await this.qazoService.addQazo(userId, prayer);
-                    await ctx.reply(`❌ ${prayer} namozi qazo qilindi!`);
+                    await ctx.editMessageText(`❌ ${prayer} namozi qazo qilindi!`);
+                } else if (action === 'later') {
+                    await ctx.editMessageText(`⏰ ${prayer} namozi uchun eslatma qayta yuboriladi.`);
                 }
                 
                 await ctx.answerCbQuery();
