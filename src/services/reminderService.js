@@ -1,0 +1,222 @@
+const cron = require('node-cron');
+const moment = require('moment-timezone');
+const { Markup } = require('telegraf');
+
+class ReminderService {
+    constructor(bot, prayerService, qazoService, db, userService, prayerTimesService) {
+        this.bot = bot;
+        this.prayerService = prayerService;
+        this.qazoService = qazoService;
+        this.db = db;
+        this.userService = userService;
+        this.prayerTimesService = prayerTimesService;
+        this.activeReminders = new Map();
+        this.checkInterval = null;
+    }
+
+    async start() {
+        console.log('Starting reminder service...');
+        
+        cron.schedule('*/1 * * * *', async () => {
+            await this.checkPrayerTimes();
+        });
+        
+        cron.schedule('*/10 * * * *', async () => {
+            await this.checkPendingPrayers();
+        });
+        
+        console.log('Reminder service started');
+    }
+
+    async stop() {
+        if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+        }
+        console.log('Reminder service stopped');
+    }
+
+    async checkPrayerTimes() {
+        try {
+            const users = await this.getAllUsers();
+            const currentTime = moment().format('HH:mm');
+            
+            for (const user of users) {
+                await this.checkUserPrayerTimes(user, currentTime);
+            }
+        } catch (error) {
+            console.error('Error checking prayer times:', error);
+        }
+    }
+
+    async checkPendingPrayers() {
+        try {
+            const users = await this.getAllUsers();
+            
+            for (const user of users) {
+                await this.checkUserPendingPrayers(user);
+            }
+        } catch (error) {
+            console.error('Error checking pending prayers:', error);
+        }
+    }
+
+    async checkUserPrayerTimes(user, currentTime) {
+        const today = new Date().toISOString().split('T')[0];
+        const times = await this.getPrayerTimes(user.telegram_id, today);
+        
+        if (!times) return;
+        
+        const prayers = [
+            { name: 'fajr', time: times.fajr, displayName: '🌅 Bomdod' },
+            { name: 'dhuhr', time: times.dhuhr, displayName: '☀️ Peshin' },
+            { name: 'asr', time: times.asr, displayName: '🌇 Asr' },
+            { name: 'maghrib', time: times.maghrib, displayName: '🌆 Shom' },
+            { name: 'isha', time: times.isha, displayName: '🌙 Qufton' }
+        ];
+        
+        for (const prayer of prayers) {
+            if (this.isPrayerTime(currentTime, prayer.time)) {
+                await this.sendPrayerReminder(user, prayer);
+            }
+        }
+    }
+
+    async checkUserPendingPrayers(user) {
+        const today = new Date().toISOString().split('T')[0];
+        const record = await this.prayerService.getOrCreatePrayerRecord(user.telegram_id, today);
+        const times = await this.getPrayerTimes(user.telegram_id, today);
+        
+        if (!times) return;
+        
+        const currentTime = moment().format('HH:mm');
+        const missedPrayers = this.getMissedPrayers(times, currentTime);
+        
+        for (const prayerName of missedPrayers) {
+            const status = record[`${prayerName}_status`];
+            
+            if (status === 'pending') {
+                await this.sendPendingPrayerReminder(user, prayerName);
+            } else if (status === 'missed') {
+                continue;
+            }
+        }
+    }
+
+    async sendPrayerReminder(user, prayer) {
+        const today = new Date().toISOString().split('T')[0];
+        const record = await this.prayerService.getOrCreatePrayerRecord(user.telegram_id, today);
+        const status = record[`${prayer.name}_status`];
+        
+        if (status === 'pending') {
+            const prayerNames = {
+                fajr: '🌅 Bomdod',
+                dhuhr: '☀️ Peshin',
+                asr: '🌇 Asr',
+                maghrib: '🌆 Shom',
+                isha: '🌙 Qufton'
+            };
+            
+            await this.bot.telegram.sendMessage(
+                user.telegram_id,
+                `⏰ ${prayerNames[prayer.name]} vaqti kirdi!\n\n` +
+                `Namozni o'qiganingizni belgilang:`,
+                Markup.inlineKeyboard([
+                    [Markup.button.callback('✅ Ha, o\'qidim', `prayer_${prayer.name}_read`)],
+                    [Markup.button.callback('⏰ Keyinroq', `prayer_${prayer.name}_later`)]
+                ])
+            );
+        }
+    }
+
+    async sendPendingPrayerReminder(user, prayerName) {
+        const prayerNames = {
+            fajr: '🌅 Bomdod',
+            dhuhr: '☀️ Peshin',
+            asr: '🌇 Asr',
+            maghrib: '🌆 Shom',
+            isha: '🌙 Qufton'
+        };
+        
+        await this.bot.telegram.sendMessage(
+            user.telegram_id,
+            `⏰ ${prayerNames[prayerName]} namozini o'qidingizmi?\n\n` +
+            `Har 10 daqiqada so'rab boramiz`,
+            Markup.inlineKeyboard([
+                [Markup.button.callback('✅ Ha, o\'qidim', `prayer_${prayerName}_read`)],
+                [Markup.button.callback('❌ Yo\'q, endi', `prayer_${prayerName}_missed`)]
+            ])
+        );
+    }
+
+    async sendMissedPrayerReminder(user, prayerName) {
+        const prayerNames = {
+            fajr: '🌅 Bomdod',
+            dhuhr: '☀️ Peshin',
+            asr: '🌇 Asr',
+            maghrib: '🌆 Shom',
+            isha: '🌙 Qufton'
+        };
+        
+        await this.bot.telegram.sendMessage(
+            user.telegram_id,
+            `⚠️ ${prayerNames[prayerName]} namozini o'qilmadingiz!\n\n` +
+            `Qazo qildingizmi?`,
+            Markup.inlineKeyboard([
+                [Markup.button.callback('✅ Ha, o\'qidim', `prayer_${prayerName}_read`)],
+                [Markup.button.callback('❌ Qazo bo\'ldi', `prayer_${prayerName}_missed`)]
+            ])
+        );
+    }
+
+    isPrayerTime(currentTime, prayerTime, toleranceMinutes = 2) {
+        const current = moment(currentTime, 'HH:mm');
+        const prayer = moment(prayerTime, 'HH:mm');
+        const diff = Math.abs(current.diff(prayer, 'minutes'));
+        
+        return diff <= toleranceMinutes;
+    }
+
+    getMissedPrayers(times, currentTime) {
+        const prayers = [
+            { name: 'fajr', time: times.fajr },
+            { name: 'dhuhr', time: times.dhuhr },
+            { name: 'asr', time: times.asr },
+            { name: 'maghrib', time: times.maghrib },
+            { name: 'isha', time: times.isha }
+        ];
+        
+        const current = moment(currentTime, 'HH:mm');
+        const missed = [];
+        
+        for (const prayer of prayers) {
+            const prayerTime = moment(prayer.time, 'HH:mm');
+            if (current.isAfter(prayerTime)) {
+                missed.push(prayer.name);
+            }
+        }
+        
+        return missed;
+    }
+
+    async getPrayerTimes(userId, date) {
+        try {
+            const user = await this.userService.getUser(userId);
+            return await this.prayerTimesService.getTodayPrayerTimes(userId, user.city || 'Tashkent', user.timezone || 'Asia/Tashkent');
+        } catch (error) {
+            console.error('Error getting prayer times:', error);
+            return null;
+        }
+    }
+
+    async getAllUsers() {
+        const query = 'SELECT * FROM users';
+        try {
+            return await this.db.all(query);
+        } catch (error) {
+            console.error('Error getting users:', error);
+            return [];
+        }
+    }
+}
+
+module.exports = ReminderService;
