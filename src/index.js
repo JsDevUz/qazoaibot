@@ -46,6 +46,9 @@ class QazoBot {
             const user = ctx.from;
             await this.userService.createUser(user.id, user.username, user.first_name);
             
+            // User online bo'lganda pending eslatmalarni tekshiramiz
+            await this.reminderService.checkUserPendingPrayers({ telegram_id: user.id });
+            
             await ctx.reply(
                 '🕌 Assalomu alaykum! Qazo AI botiga xush kelibsiz!\n\n' +
                 'Bu bot sizning namozlaringizni kuzatib boradi va qazo qilgan namozlaringizni hisoblaydi.\n\n' +
@@ -59,7 +62,7 @@ class QazoBot {
                 Markup.inlineKeyboard([
                     [Markup.button.callback('📊 Qazo holati', 'menu_qazo')],
                     [Markup.button.callback('📅 Bugungi namozlar', 'menu_today')],
-                    [Markup.button.callback('� Namoz vaqtlari', 'menu_times')],
+                    [Markup.button.callback('🕐 Namoz vaqtlari', 'menu_times')],
                     [Markup.button.callback('📝 Qazo qo\'shish', 'menu_addqazo')],
                     [Markup.button.callback('⚙️ Sozlamalar', 'menu_settings')],
                     [Markup.button.callback('❓ Yordam', 'menu_help')]

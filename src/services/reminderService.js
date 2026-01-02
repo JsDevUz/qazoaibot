@@ -77,6 +77,9 @@ class ReminderService {
         for (const prayer of prayers) {
             if (this.isPrayerTime(currentTime, prayer.time)) {
                 await this.sendPrayerReminder(user, prayer);
+            } else if (this.shouldSendMissedReminder(user, prayer, currentTime)) {
+                // Agar namoz vaqti o'tib ketgan bo'lsa va eslatma yuborilmagan bo'lsa
+                await this.sendPrayerReminder(user, prayer);
             }
         }
     }
@@ -184,6 +187,16 @@ class ReminderService {
         const diff = Math.abs(current.diff(prayer, 'minutes'));
         
         return diff <= toleranceMinutes;
+    }
+
+    shouldSendMissedReminder(user, prayer, currentTime) {
+        // Agar namoz vaqti 10-30 daqiqa oldin o'tgan bo'lsa va eslatma yuborilmagan bo'lsa
+        const prayerTime = moment(prayer.time, 'HH:mm');
+        const current = moment(currentTime, 'HH:mm');
+        const diffMinutes = current.diff(prayerTime, 'minutes');
+        
+        // Namoz vaqti 10-30 daqiqa oldin o'tgan bo'lsa
+        return diffMinutes >= 10 && diffMinutes <= 30;
     }
 
     getMissedPrayers(times, currentTime) {
