@@ -71,68 +71,15 @@ class QazoBot {
         });
 
         this.bot.command('settings', async (ctx) => {
-            await ctx.reply(
-                '⚙️ Sozlamalar:\n\n' +
-                'Vaqtni zonalarni va shaharni sozlash uchun tugmalardan foydalaning:',
-                Markup.inlineKeyboard([
-                    [Markup.button.callback('🌍 Toshkent', 'set_tashkent')],
-                    [Markup.button.callback('🌍 Samarqand', 'set_samarkand')],
-                    [Markup.button.callback('🌍 Buxoro', 'set_bukhara')],
-                    [Markup.button.callback('🌍 Farg\'ona', 'set_fergana')]
-                ])
-            );
+            // Command larni olib tashlaymiz, faqat action lar bilan ishlamiz
         });
 
         this.bot.command('qazo', async (ctx) => {
-            const userId = ctx.from.id;
-            const qazoSummary = await this.qazoService.getQazoSummary(userId);
-            const user = await this.userService.getUser(userId);
-            const currentTime = new Date().toLocaleString('uz-UZ', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit',
-                hour12: false,
-                timeZone: user.timezone || 'Asia/Tashkent'
-            });
-            
-            let message = '📊 Sizning qazo holatingiz:\n\n';
-            message += `🔢 Jami qazo: ${qazoSummary.total}\n`;
-            message += `🕐 Vaqt: ${currentTime}\n\n`;
-            
-            const prayerNames = {
-                fajr: '🌅 Bomdod',
-                dhuhr: '☀️ Peshin',
-                asr: '🌇 Asr',
-                maghrib: '🌆 Shom',
-                isha: '🌙 Qufton'
-            };
-            
-            for (const [prayer, count] of Object.entries(qazoSummary.details)) {
-                message += `${prayerNames[prayer]}: ${count} ta\n`;
-            }
-            
-            await ctx.editMessageText(message, Markup.inlineKeyboard([
-                [Markup.button.callback('💾 Saqlab qolish', 'save_qazo_status')],
-                [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
-            ]));
+            // Command larni olib tashlaymiz, faqat action lar bilan ishlamiz
         });
 
         this.bot.command('help', async (ctx) => {
-            await ctx.reply(
-                '❓ Yordam:\n\n' +
-                '🔹 /start - Botni ishga tushurish\n' +
-                '🔹 /settings - Sozlamalar\n' +
-                '🔹 /qazo - Qazo holatini ko\'rish\n' +
-                '🔹 /today - Bugungi namozlar\n' +
-                '🔹 /addqazo - Eski qazolarni kiritish\n' +
-                '🔹 /times - Bugungi namoz vaqtlari\n' +
-                '🔹 /help - Yordam\n\n' +
-                'Bot avtomatik ravishda namoz vaqtlarida eslatishlar yuboradi!\n\n' +
-                'Bosh menyuga qaytish uchun /start ni bosing.',
-                Markup.inlineKeyboard([
-                    [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
-                ])
-            );
+            // Command larni olib tashlaymiz, faqat action lar bilan ishlamiz
         });
 
         this.bot.action('save_qazo_status', async (ctx) => {
@@ -435,6 +382,14 @@ class QazoBot {
         this.bot.action('menu_qazo', async (ctx) => {
             const userId = ctx.from.id;
             const qazoSummary = await this.qazoService.getQazoSummary(userId);
+            const user = await this.userService.getUser(userId);
+            const currentTime = new Date().toLocaleString('uz-UZ', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false,
+                timeZone: user.timezone || 'Asia/Tashkent'
+            });
             
             const prayerNames = {
                 fajr: '🌅 Bomdod',
@@ -445,13 +400,15 @@ class QazoBot {
             };
             
             let message = '📊 Sizning qazo holatingiz:\n\n';
-            message += `🔢 Jami qazo: ${qazoSummary.total} ta\n\n`;
+            message += `🔢 Jami qazo: ${qazoSummary.total}\n`;
+            message += `🕐 Vaqt: ${currentTime}\n\n`;
             
             for (const [prayer, count] of Object.entries(qazoSummary.details)) {
                 message += `${prayerNames[prayer]}: ${count} ta\n`;
             }
             
             await ctx.editMessageText(message, Markup.inlineKeyboard([
+                [Markup.button.callback('💾 Saqlab qolish', 'save_qazo_status')],
                 [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
             ]));
             await ctx.answerCbQuery();
@@ -703,14 +660,18 @@ class QazoBot {
         this.bot.action('menu_help', async (ctx) => {
             await ctx.editMessageText(
                 '❓ Yordam:\n\n' +
-                '🔹 /start - Botni ishga tushurish\n' +
-                '🔹 /settings - Sozlamalar\n' +
-                '🔹 /qazo - Qazo holatini ko\'rish\n' +
-                '🔹 /today - Bugungi namozlar\n' +
-                '🔹 /addqazo - Eski qazolarni kiritish\n' +
-                '🔹 /times - Bugungi namoz vaqtlari\n' +
-                '🔹 /help - Yordam\n\n' +
-                'Bot avtomatik ravishda namoz vaqtlarida eslatishlar yuboradi!',
+                '🔹 Bot faqat tugmalar (action) orqali ishlaydi\n\n' +
+                '� Asosiy funksiyalar:\n' +
+                '• � Qazo holati - qazolaringizni ko\'rish\n' +
+                '• � Bugungi namozlar - kunlik namoz holati\n' +
+                '• � Namoz vaqtlari - bugungi vaqtlar\n' +
+                '• � Qazo qo\'shish - eski qazolarni kiritish\n' +
+                '• ⚙️ Sozlamalar - shahar va vaqt zonasi\n\n' +
+                '🤖 Bot avtomatik ravishda:\n' +
+                '• Namoz vaqtlarida eslatish yuboradi\n' +
+                '• Har 10 daqiqada so\'rab boradi\n' +
+                '• Lokatsiya orqali shaharni aniqlaydi\n\n' +
+                '📍 Lokatsiya yuborish orqali avtomatik shaharni aniqlashingiz mumkin!',
                 Markup.inlineKeyboard([
                     [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
                 ])
