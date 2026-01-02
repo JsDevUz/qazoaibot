@@ -86,9 +86,18 @@ class QazoBot {
         this.bot.command('qazo', async (ctx) => {
             const userId = ctx.from.id;
             const qazoSummary = await this.qazoService.getQazoSummary(userId);
+            const user = await this.userService.getUser(userId);
+            const currentTime = new Date().toLocaleString('uz-UZ', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false,
+                timeZone: user.timezone || 'Asia/Tashkent'
+            });
             
             let message = '📊 Sizning qazo holatingiz:\n\n';
-            message += `🔢 Jami qazo: ${qazoSummary.total}\n\n`;
+            message += `🔢 Jami qazo: ${qazoSummary.total}\n`;
+            message += `🕐 Vaqt: ${currentTime}\n\n`;
             
             const prayerNames = {
                 fajr: '🌅 Bomdod',
@@ -103,6 +112,7 @@ class QazoBot {
             }
             
             await ctx.editMessageText(message, Markup.inlineKeyboard([
+                [Markup.button.callback('💾 Saqlab qolish', 'save_qazo_status')],
                 [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
             ]));
         });
@@ -123,6 +133,13 @@ class QazoBot {
                     [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
                 ])
             );
+        });
+
+        this.bot.action('save_qazo_status', async (ctx) => {
+            await ctx.reply('✅ Qazo holati saqlab qolindi!', Markup.inlineKeyboard([
+                [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
+            ]));
+            await ctx.answerCbQuery();
         });
 
         this.bot.action('menu_main', async (ctx) => {
@@ -230,6 +247,67 @@ class QazoBot {
             try {
                 await this.qazoInputService.addQazoToDatabase(userId, state.counts);
                 await ctx.editMessageText('✅ Qazolar muvaffaqiyatli qo\'shildi!', Markup.inlineKeyboard([
+                    [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
+                ]));
+                this.qazoInputService.inputStates.delete(userId);
+            } catch (error) {
+                await ctx.editMessageText('❌ Xatolik yuz berdi. Qaytadan urining.', Markup.inlineKeyboard([
+                    [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
+                ]));
+            }
+            
+            await ctx.answerCbQuery();
+        });
+
+        this.bot.action(/confirm_remove_period_(.+)/, async (ctx) => {
+            const userId = ctx.from.id;
+            const qazoCount = parseInt(ctx.match[1]);
+            
+            const qazoData = {
+                fajr: -qazoCount,
+                dhuhr: -qazoCount,
+                asr: -qazoCount,
+                maghrib: -qazoCount,
+                isha: -qazoCount
+            };
+            
+            try {
+                await this.qazoInputService.addQazoToDatabase(userId, qazoData);
+                await ctx.editMessageText('✅ Qazolar muvaffaqiyatli ayirildi!', Markup.inlineKeyboard([
+                    [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
+                ]));
+                this.qazoInputService.inputStates.delete(userId);
+            } catch (error) {
+                await ctx.editMessageText('❌ Xatolik yuz berdi. Qaytadan urining.', Markup.inlineKeyboard([
+                    [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
+                ]));
+            }
+            
+            await ctx.answerCbQuery();
+        });
+
+        this.bot.action(/confirm_remove_count_(.+)/, async (ctx) => {
+            const userId = ctx.from.id;
+            const count = parseInt(ctx.match[1]);
+            
+            const state = this.qazoInputService.inputStates.get(userId);
+            
+            if (!state || !state.counts) {
+                await ctx.editMessageText('❌ Ma\'lumotlar topilmadi. Qaytadan boshlang.', Markup.inlineKeyboard([
+                    [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
+                ]));
+                await ctx.answerCbQuery();
+                return;
+            }
+            
+            const qazoData = {};
+            for (const [prayer, prayerCount] of Object.entries(state.counts)) {
+                qazoData[prayer] = -prayerCount;
+            }
+            
+            try {
+                await this.qazoInputService.addQazoToDatabase(userId, qazoData);
+                await ctx.editMessageText('✅ Qazolar muvaffaqiyatli ayirildi!', Markup.inlineKeyboard([
                     [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
                 ]));
                 this.qazoInputService.inputStates.delete(userId);
@@ -494,7 +572,7 @@ class QazoBot {
             await ctx.answerCbQuery();
         });
 
-        this.bot.action('remove_qazo_menu', async (ctx) => {
+        this.bot.action('remove_qazo_count', async (ctx) => {
             await ctx.editMessageText(
                 '➖ Qazo ayrish:\n\n' +
                 'Qanday usulda ayirmoqchisiz?',
@@ -511,16 +589,77 @@ class QazoBot {
         this.bot.action('menu_settings', async (ctx) => {
             await ctx.editMessageText(
                 '⚙️ Sozlamalar:\n\n' +
-                'Vaqtni zonalarni va shaharni sozlash uchun tugmalardan foydalaning:',
+                'Vaqtni zonalarni va shaharni sozlash uchun tugmalardan foydalaning:\n\n' +
+                '📍 Yoki lokatsiyangizni yuboring - avtomatik aniqlanadi!',
                 Markup.inlineKeyboard([
                     [Markup.button.callback('🌍 Toshkent', 'set_tashkent')],
                     [Markup.button.callback('🌍 Samarqand', 'set_samarkand')],
                     [Markup.button.callback('🌍 Buxoro', 'set_bukhara')],
                     [Markup.button.callback('🌍 Farg\'ona', 'set_fergana')],
+                    [Markup.button.callback('📍 Lokatsiya yuborish', 'request_location')],
                     [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
                 ])
             );
             await ctx.answerCbQuery();
+        });
+
+        this.bot.action('request_location', async (ctx) => {
+            await ctx.reply(
+                '📍 Lokatsiyangizni yuboring:\n\n' +
+                'Quyidagi tugmani bosing va lokatsiyangizni tanlang:',
+                Markup.keyboard([
+                    [Markup.button.locationRequest('📍 Lokatsiya yuborish')]
+                ]).resize().oneTime()
+            );
+            await ctx.answerCbQuery();
+        });
+
+        this.bot.on('location', async (ctx) => {
+            const userId = ctx.from.id;
+            const location = ctx.message.location;
+            
+            try {
+                // Lokatsiya bo'yicha shaharni aniqlaymiz
+                const cityInfo = await this.getCityFromLocation(location.latitude, location.longitude);
+                
+                if (cityInfo) {
+                    // User ma'lumotlarini yangilaymiz
+                    await this.userService.updateUserLocation(userId, cityInfo.city, cityInfo.timezone, cityInfo.country);
+                    
+                    await ctx.reply(
+                        `✅ Lokatsiya aniqlandi!\n\n` +
+                        `🏙️ Shahar: ${cityInfo.city}\n` +
+                        `🌍 Davlat: ${cityInfo.country}\n` +
+                        `⏰ Vaqt zonasi: ${cityInfo.timezone}\n\n` +
+                        `Namoz vaqtlari ${cityInfo.city} uchun sozlandi!`,
+                        Markup.inlineKeyboard([
+                            [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
+                        ])
+                    );
+                } else {
+                    await ctx.reply(
+                        '❌ Kechirasiz, bu lokatsiya uchun shaharni aniqlab bo\'lmadi.\n\n' +
+                        'Iltimos, qo\'lda shaharni tanlang:',
+                        Markup.inlineKeyboard([
+                            [Markup.button.callback('🌍 Toshkent', 'set_tashkent')],
+                            [Markup.button.callback('🌍 Samarqand', 'set_samarkand')],
+                            [Markup.button.callback('🌍 Buxoro', 'set_bukhara')],
+                            [Markup.button.callback('🌍 Farg\'ona', 'set_fergona')]
+                        ])
+                    );
+                }
+            } catch (error) {
+                console.error('Error processing location:', error);
+                await ctx.reply(
+                    '❌ Xatolik yuz berdi. Iltimos, qaytadan urining yoki shaharni qo\'lda tanlang.',
+                    Markup.inlineKeyboard([
+                        [Markup.button.callback('🌍 Toshkent', 'set_tashkent')],
+                        [Markup.button.callback('🌍 Samarqand', 'set_samarkand')],
+                        [Markup.button.callback('🌍 Buxoro', 'set_bukhara')],
+                        [Markup.button.callback('🌍 Farg\'ona', 'set_fergana')]
+                    ])
+                );
+            }
         });
 
         this.bot.action('qazo_by_date_range', async (ctx) => {
@@ -634,6 +773,12 @@ class QazoBot {
                 } else if (state.mode === 'count') {
                     await this.qazoInputService.handleCountInput(ctx, userId, text, state);
                     return;
+                } else if (state.mode === 'remove_period') {
+                    await this.handleRemovePeriodInput(ctx, userId, text, state);
+                    return;
+                } else if (state.mode === 'remove_count') {
+                    await this.handleRemoveCountInput(ctx, userId, text, state);
+                    return;
                 } else if (state.mode === 'date_range') {
                     await this.handleDateRangeInput(ctx, userId, text, state);
                     return;
@@ -645,6 +790,70 @@ class QazoBot {
             
             // Only handle text commands, ignore button presses since we use inline keyboards
         });
+    }
+
+    async handleRemovePeriodInput(ctx, userId, text, state) {
+        if (state.step === 1) {
+            const periodData = this.qazoInputService.parsePeriod(text);
+            
+            if (!periodData) {
+                await ctx.reply(
+                    '❌ Noto\'g\'ri format! Qaytadan urining:\n\n' +
+                    'Masalan: "2 yil 3 oy 5 kun" yoki "6 oy 10 kun" yoki "15 kun" yoki "1 yil"'
+                );
+                return;
+            }
+            
+            const totalDays = this.qazoInputService.calculateTotalDays(periodData);
+            const qazoCount = Math.floor(totalDays * 5); // 5 namoz kuniga
+            
+            await ctx.reply(
+                `📊 Hisoblash natijasi:\n\n` +
+                `📅 ${periodData.years} yil ${periodData.months} oy ${periodData.days} kun = ${totalDays} kun\n` +
+                `🕌 Jami qazo: ${qazoCount} ta namoz\n\n` +
+                `Har bir namoz uchun taqsimlash:\n` +
+                `🌅 Bomdod: ${qazoCount} ta\n` +
+                `☀️ Peshin: ${qazoCount} ta\n` +
+                `🌇 Asr: ${qazoCount} ta\n` +
+                `🌆 Shom: ${qazoCount} ta\n` +
+                `🌙 Qufton: ${qazoCount} ta\n\n` +
+                `Bu qazolarni ayirishni tasdiqlaysizmi?`,
+                Markup.inlineKeyboard([
+                    [Markup.button.callback('✅ Tasdiqlash', `confirm_remove_period_${qazoCount}`)],
+                    [Markup.button.callback('❌ Bekor qilish', 'cancel_qazo')]
+                ])
+            );
+            
+            this.qazoInputService.inputStates.set(userId, { ...state, step: 2, qazoCount, periodData });
+        }
+    }
+
+    async handleRemoveCountInput(ctx, userId, text, state) {
+        if (state.step === 1) {
+            const count = parseInt(text.trim());
+            
+            if (isNaN(count) || count <= 0) {
+                await ctx.reply('❌ Noto\'g\'ri son! Iltimos, musbat son kiriting:');
+                return;
+            }
+            
+            await ctx.reply(
+                `🔢 Qazo ayirish:\n\n` +
+                `🌅 Bomdod: ${count} ta\n` +
+                `☀️ Peshin: ${count} ta\n` +
+                `🌇 Asr: ${count} ta\n` +
+                `🌆 Shom: ${count} ta\n` +
+                `🌙 Qufton: ${count} ta\n\n` +
+                `Jami: ${count * 5} ta qazo ayiriladi\n\n` +
+                `Tasdiqlaysizmi?`,
+                Markup.inlineKeyboard([
+                    [Markup.button.callback('✅ Tasdiqlash', `confirm_remove_count_${count}`)],
+                    [Markup.button.callback('❌ Bekor qilish', 'cancel_qazo')]
+                ])
+            );
+            
+            this.qazoInputService.inputStates.set(userId, { ...state, step: 2, count });
+        }
     }
 
     async handleDateRangeInput(ctx, userId, text, state) {
@@ -779,6 +988,58 @@ class QazoBot {
         }
 
         return prayers.length > 0 ? prayers : null;
+    }
+
+    async getCityFromLocation(latitude, longitude) {
+        // O'zbekiston shaharlari koordinatalari
+        const uzbekistanCities = [
+            { name: 'Toshkent', lat: 41.2995, lon: 69.2401, timezone: 'Asia/Tashkent', country: 'Uzbekistan' },
+            { name: 'Samarqand', lat: 39.6542, lon: 66.9597, timezone: 'Asia/Samarkand', country: 'Uzbekistan' },
+            { name: 'Buxoro', lat: 39.7681, lon: 64.4555, timezone: 'Asia/Samarkand', country: 'Uzbekistan' },
+            { name: 'Farg\'ona', lat: 40.3842, lon: 71.7845, timezone: 'Asia/Tashkent', country: 'Uzbekistan' },
+            { name: 'Andijon', lat: 40.7821, lon: 72.3442, timezone: 'Asia/Tashkent', country: 'Uzbekistan' },
+            { name: 'Namangan', lat: 40.9983, lon: 71.6726, timezone: 'Asia/Tashkent', country: 'Uzbekistan' },
+            { name: 'Qarshi', lat: 38.8606, lon: 65.7896, timezone: 'Asia/Samarkand', country: 'Uzbekistan' },
+            { name: 'Nukus', lat: 42.4531, lon: 59.6103, timezone: 'Asia/Tashkent', country: 'Uzbekistan' },
+            { name: 'Jizzax', lat: 40.1153, lon: 67.8422, timezone: 'Asia/Tashkent', country: 'Uzbekistan' },
+            { name: 'Guliston', lat: 39.4954, lon: 67.3745, timezone: 'Asia/Tashkent', country: 'Uzbekistan' },
+            { name: 'Termiz', lat: 37.2242, lon: 67.2783, timezone: 'Asia/Samarkand', country: 'Uzbekistan' },
+            { name: 'Navoiy', lat: 40.0947, lon: 65.3777, timezone: 'Asia/Samarkand', country: 'Uzbekistan' }
+        ];
+
+        // Eng yaqin shaharni topamiz
+        let closestCity = null;
+        let minDistance = Infinity;
+
+        for (const city of uzbekistanCities) {
+            const distance = this.calculateDistance(latitude, longitude, city.lat, city.lon);
+            
+            if (distance < minDistance && distance < 100) { // 100 km radius ichida
+                minDistance = distance;
+                closestCity = {
+                    city: city.name,
+                    timezone: city.timezone,
+                    country: city.country
+                };
+            }
+        }
+
+        return closestCity;
+    }
+
+    calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Earth radius in km
+        const dLat = this.toRad(lat2 - lat1);
+        const dLon = this.toRad(lon2 - lon1);
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    toRad(deg) {
+        return deg * (Math.PI/180);
     }
 
     async start() {

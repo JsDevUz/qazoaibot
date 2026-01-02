@@ -28,13 +28,14 @@ class QazoInputService {
             this.inputStates.set(userId, { mode: 'period', step: 1 });
             
             await ctx.reply(
-                '📅 Oy/Yil bo\'yicha qazo kiritish:\n\n' +
+                '📅 Kun/Oy/Yil bo\'yicha qazo kiritish:\n\n' +
                 'Qancha vaqt qazo qilgansiz?\n\n' +
                 'Masalan:\n' +
-                '• "2 yil 3 oy"\n' +
-                '• "6 oy"\n' +
-                '• "1 yil"\n\n' +
-                'Format: "X yil Y oy" yoki "X oy" yoki "X yil"'
+                '• "2 yil 3 oy 5 kun"\n' +
+                '• "6 oy 10 kun"\n' +
+                '• "1 yil"\n' +
+                '• "15 kun"\n\n' +
+                'Format: "X yil Y oy Z kun" yoki "X oy Y kun" yoki "X kun" yoki "X yil" yoki "X oy"'
             );
             await ctx.answerCbQuery();
         });
@@ -74,7 +75,7 @@ class QazoInputService {
             if (!periodData) {
                 await ctx.reply(
                     '❌ Noto\'g\'ri format! Qaytadan urining:\n\n' +
-                    'Masalan: "2 yil 3 oy" yoki "6 oy" yoki "1 yil"'
+                    'Masalan: "2 yil 3 oy 5 kun" yoki "6 oy 10 kun" yoki "15 kun" yoki "1 yil"'
                 );
                 return;
             }
@@ -84,7 +85,7 @@ class QazoInputService {
             
             await ctx.reply(
                 `📊 Hisoblash natijasi:\n\n` +
-                `📅 ${periodData.years} yil ${periodData.months} oy = ${totalDays} kun\n` +
+                `📅 ${periodData.years} yil ${periodData.months} oy ${periodData.days} kun = ${totalDays} kun\n` +
                 `🕌 Jami qazo: ${qazoCount} ta namoz\n\n` +
                 `Har bir namoz uchun taqsimlash:\n` +
                 `🌅 Bomdod: ${qazoCount} ta\n` +
@@ -158,19 +159,21 @@ class QazoInputService {
     parsePeriod(text) {
         const yearMatch = text.match(/(\d+)\s*yil/i);
         const monthMatch = text.match(/(\d+)\s*oy/i);
+        const dayMatch = text.match(/(\d+)\s*kun/i);
         
         const years = yearMatch ? parseInt(yearMatch[1]) : 0;
         const months = monthMatch ? parseInt(monthMatch[1]) : 0;
+        const days = dayMatch ? parseInt(dayMatch[1]) : 0;
         
-        if (years === 0 && months === 0) {
+        if (years === 0 && months === 0 && days === 0) {
             return null;
         }
         
-        return { years, months };
+        return { years, months, days };
     }
 
     calculateTotalDays(period) {
-        return period.years * 365 + period.months * 30;
+        return period.years * 365 + period.months * 30 + period.days;
     }
 
     async addQazoToDatabase(userId, qazoData) {

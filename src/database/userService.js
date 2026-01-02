@@ -44,6 +44,21 @@ class UserService {
         }
     }
 
+    async updateUserLocation(telegramId, city, timezone, country) {
+        const query = `
+            UPDATE users 
+            SET timezone = ?, city = ?, country = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE telegram_id = ?
+        `;
+        try {
+            await this.db.run(query, [timezone, city, country, telegramId]);
+            return await this.getUser(telegramId);
+        } catch (error) {
+            console.error('Error updating user location:', error);
+            throw error;
+        }
+    }
+
     async getAllUsers() {
         const query = 'SELECT * FROM users';
         try {
