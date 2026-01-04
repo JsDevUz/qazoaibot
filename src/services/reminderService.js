@@ -11,6 +11,7 @@ class ReminderService {
         this.userService = userService;
         this.prayerTimesService = prayerTimesService;
         this.activeReminders = new Map();
+        this.pendingReminders = new Map(); // Yangi: pending eslatmalarni saqlash
         this.checkInterval = null;
     }
 
@@ -38,9 +39,11 @@ class ReminderService {
     async checkPrayerTimes() {
         try {
             const users = await this.getAllUsers();
-            const currentTime = moment().format('HH:mm');
             
             for (const user of users) {
+                // User timezone ga mos vaqtni olamiz
+                const userTimezone = user.timezone || 'Asia/Tashkent';
+                const currentTime = moment().tz(userTimezone).format('HH:mm');
                 await this.checkUserPrayerTimes(user, currentTime);
             }
         } catch (error) {
@@ -53,7 +56,10 @@ class ReminderService {
             const users = await this.getAllUsers();
             
             for (const user of users) {
-                await this.checkUserPendingPrayers(user);
+                // User timezone ga mos vaqtni olamiz
+                const userTimezone = user.timezone || 'Asia/Tashkent';
+                const currentTime = moment().tz(userTimezone).format('HH:mm');
+                await this.checkUserPendingPrayers(user, currentTime);
             }
         } catch (error) {
             console.error('Error checking pending prayers:', error);
@@ -77,21 +83,17 @@ class ReminderService {
         for (const prayer of prayers) {
             if (this.isPrayerTime(currentTime, prayer.time)) {
                 await this.sendPrayerReminder(user, prayer);
-            } else if (this.shouldSendMissedReminder(user, prayer, currentTime)) {
-                // Agar namoz vaqti o'tib ketgan bo'lsa va eslatma yuborilmagan bo'lsa
-                await this.sendPrayerReminder(user, prayer);
             }
         }
     }
 
-    async checkUserPendingPrayers(user) {
+    async checkUserPendingPrayers(user, currentTime) {
         const today = new Date().toISOString().split('T')[0];
         const record = await this.prayerService.getOrCreatePrayerRecord(user.telegram_id, today);
         const times = await this.getPrayerTimes(user.telegram_id, today);
         
         if (!times) return;
         
-        const currentTime = moment().format('HH:mm');
         const missedPrayers = this.getMissedPrayers(times, currentTime);
         
         for (const prayerName of missedPrayers) {
@@ -150,7 +152,21 @@ class ReminderService {
             isha: '🌙 Qufton'
         };
         
-        await this.bot.telegram.sendMessage(
+        const key = `${user.telegram_id}_${prayerName}`;
+        
+        // Avvalgi eslatmani o'chirish
+        if (this.pendingReminders.has(key)) {
+            try {
+                const messageId = this.pendingReminders.get(key);
+                await this.bot.telegram.deleteMessage(user.telegram_id, messageId);
+                console.log(`Deleted previous reminder for ${prayerName}`);
+            } catch (error) {
+                console.log('Could not delete previous reminder:', error.message);
+            }
+        }
+        
+        // Yangi eslatma yuborish
+        const message = await this.bot.telegram.sendMessage(
             user.telegram_id,
             `⏰ ${prayerNames[prayerName]} namozini o'qidingizmi?\n\n` +
             `Har 10 daqiqada so'rab boramiz`,
@@ -159,6 +175,9 @@ class ReminderService {
                 [Markup.button.callback('⏰ Keyinroq', `prayer_${prayerName}_later`)]
             ])
         );
+        
+        // Yangi eslatma ID sini saqlash
+        this.pendingReminders.set(key, message.message_id);
     }
 
     async sendMissedPrayerReminder(user, prayerName) {
@@ -170,7 +189,21 @@ class ReminderService {
             isha: '🌙 Qufton'
         };
         
-        await this.bot.telegram.sendMessage(
+        const key = `${user.telegram_id}_${prayerName}`;
+        
+        // Avvalgi eslatmani o'chirish
+        if (this.pendingReminders.has(key)) {
+            try {
+                const messageId = this.pendingReminders.get(key);
+                await this.bot.telegram.deleteMessage(user.telegram_id, messageId);
+                console.log(`Deleted previous missed reminder for ${prayerName}`);
+            } catch (error) {
+                console.log('Could not delete previous missed reminder:', error.message);
+            }
+        }
+        
+        // Yangi eslatma yuborish
+        const message = await this.bot.telegram.sendMessage(
             user.telegram_id,
             `⚠️ ${prayerNames[prayerName]} namozini o'qilmadingiz!\n\n` +
             `Qazo qildingizmi?`,
@@ -179,6 +212,9 @@ class ReminderService {
                 [Markup.button.callback('❌ Qazo bo\'ldi', `prayer_${prayerName}_missed`)]
             ])
         );
+        
+        // Yangi eslatma ID sini saqlash
+        this.pendingReminders.set(key, message.message_id);
     }
 
     isPrayerTime(currentTime, prayerTime, toleranceMinutes = 2) {

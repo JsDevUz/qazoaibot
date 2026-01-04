@@ -408,9 +408,7 @@ class QazoBot {
             }
             
             await ctx.editMessageText(message, Markup.inlineKeyboard([
-                [Markup.button.callback('💾 Saqlab qolish', 'save_qazo_status')],
-                [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
-            ]));
+                [Markup.button.callback('💾 Saqlab qolish', 'save_qazo_status')]            ]));
             await ctx.answerCbQuery();
         });
 
@@ -705,6 +703,10 @@ class QazoBot {
             
             if (data.startsWith('prayer_')) {
                 const [_, prayer, action] = data.split('_');
+                
+                // Eslatmani tozalash
+                const key = `${userId}_${prayer}`;
+                this.reminderService.pendingReminders.delete(key);
                 
                 if (action === 'read') {
                     await this.prayerService.updatePrayerStatus(userId, new Date().toISOString().split('T')[0], prayer, 'read');
