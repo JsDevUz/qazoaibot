@@ -94,25 +94,28 @@ class ReminderService {
         
         if (!times) return;
         
-        const missedPrayers = this.getMissedPrayers(times, currentTime);
+        const prayers = [
+            { name: 'fajr', time: times.fajr },
+            { name: 'dhuhr', time: times.dhuhr },
+            { name: 'asr', time: times.asr },
+            { name: 'maghrib', time: times.maghrib },
+            { name: 'isha', time: times.isha }
+        ];
         
-        for (const prayerName of missedPrayers) {
-            const status = record[`${prayerName}_status`];
+        const current = moment(currentTime, 'HH:mm');
+        
+        for (const prayer of prayers) {
+            const prayerTime = moment(prayer.time, 'HH:mm');
+            const status = record[`${prayer.name}_status`];
             
             if (status === 'pending') {
-                // Keyingi namoz vaqti kirdimi yoki yo'qligini tekshiramiz
-                const nextPrayerIndex = this.getNextPrayerIndex(prayerName);
-                const nextPrayer = this.getPrayerByIndex(nextPrayerIndex);
-                
-                if (nextPrayer && this.isPrayerTime(currentTime, times[nextPrayer])) {
-                    // Keyingi namoz vaqti kirib bo'lgan - missed eslatma yuboramiz
-                    await this.sendMissedPrayerReminder(user, prayerName);
+                if (current.isAfter(prayerTime)) {
+                    // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
+                    await this.sendMissedPrayerReminder(user, prayer.name);
                 } else {
-                    // Hali vaqt bor - later eslatma yuboramiz
-                    await this.sendPendingPrayerReminder(user, prayerName);
+                    // Namoz vaqti hali kirmagan - pending eslatma yuboramiz
+                    await this.sendPendingPrayerReminder(user, prayer.name);
                 }
-            } else if (status === 'missed') {
-                continue;
             }
         }
     }
