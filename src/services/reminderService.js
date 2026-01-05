@@ -108,14 +108,10 @@ class ReminderService {
             const prayerTime = moment(prayer.time, 'HH:mm');
             const status = record[`${prayer.name}_status`];
             
-            if (status === 'pending') {
-                if (current.isAfter(prayerTime)) {
-                    // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
-                    await this.sendMissedPrayerReminder(user, prayer.name);
-                } else {
-                    // Namoz vaqti hali kirmagan - pending eslatma yuboramiz
-                    await this.sendPendingPrayerReminder(user, prayer.name);
-                }
+            // Faqat pending statusdagi va vaqti o'tib ketgan namozlarni tekshiramiz
+            if (status === 'pending' && current.isAfter(prayerTime)) {
+                // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
+                await this.sendMissedPrayerReminder(user, prayer.name);
             }
         }
     }
