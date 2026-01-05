@@ -738,16 +738,20 @@ class QazoBot {
             
             if (data.startsWith('prayer_')) {
                 const [_, prayer, action] = data.split('_');
+                const today = new Date().toISOString().split('T')[0];
                 
-                // Eslatmani tozalash
-                const key = `${userId}_${prayer}`;
-                this.reminderService.pendingReminders.delete(key);
+                // Eslatmalarni tozalash
+                const pendingKey = `${userId}_${prayer}`;
+                const activeKey = `${userId}_${prayer}_${today}`;
+                
+                this.reminderService.pendingReminders.delete(pendingKey);
+                this.reminderService.activeReminders.delete(activeKey);
                 
                 if (action === 'read') {
-                    await this.prayerService.updatePrayerStatus(userId, new Date().toISOString().split('T')[0], prayer, 'read');
+                    await this.prayerService.updatePrayerStatus(userId, today, prayer, 'read');
                     await ctx.editMessageText(`✅ ${prayer} namozi o'qilgan deb belgilandi!`);
                 } else if (action === 'missed') {
-                    await this.prayerService.updatePrayerStatus(userId, new Date().toISOString().split('T')[0], prayer, 'missed');
+                    await this.prayerService.updatePrayerStatus(userId, today, prayer, 'missed');
                     await this.qazoService.addQazo(userId, prayer);
                     await ctx.editMessageText(`❌ ${prayer} namozi qazo qilindi!`);
                 } else if (action === 'later') {

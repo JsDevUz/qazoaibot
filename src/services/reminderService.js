@@ -18,12 +18,19 @@ class ReminderService {
     async start() {
         console.log('Starting reminder service...');
         
+        // Har daqiqa - aniq namoz vaqtini tekshirish
         cron.schedule('*/1 * * * *', async () => {
             await this.checkPrayerTimes();
         });
         
+        // Har 10 daqiqa - pending namozlarni eslatish
         cron.schedule('*/10 * * * *', async () => {
             await this.checkPendingPrayers();
+        });
+        
+        // Har kecha yarim kechada eslatmalarni tozalash
+        cron.schedule('0 0 * * *', async () => {
+            await this.clearDailyReminders();
         });
         
         console.log('Reminder service started');
@@ -81,8 +88,13 @@ class ReminderService {
         ];
         
         for (const prayer of prayers) {
-            if (this.isPrayerTime(currentTime, prayer.time)) {
+            const key = `${user.telegram_id}_${prayer.name}_${today}`;
+            
+            // Faqat bir marta eslatish uchun tekshiramiz
+            if (!this.activeReminders.has(key) && this.isPrayerTime(currentTime, prayer.time)) {
                 await this.sendPrayerReminder(user, prayer);
+                // Eslatma yuborilganini belgilaymiz
+                this.activeReminders.set(key, true);
             }
         }
     }
@@ -256,12 +268,6 @@ class ReminderService {
         return missed;
     }
 
-    getNextPrayerIndex(prayerName) {
-        const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
-        const currentIndex = prayers.indexOf(prayerName);
-        return currentIndex < prayers.length - 1 ? currentIndex + 1 : -1;
-    }
-
     getPrayerByIndex(index) {
         const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
         return index >= 0 && index < prayers.length ? prayers[index] : null;
@@ -285,6 +291,12 @@ class ReminderService {
             console.error('Error getting users:', error);
             return [];
         }
+    }
+
+    async clearDailyReminders() {
+        console.log('Clearing daily reminders...');
+        this.activeReminders.clear();
+        this.pendingReminders.clear();
     }
 }
 
