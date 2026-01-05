@@ -120,10 +120,31 @@ class ReminderService {
             const prayerTime = moment(prayer.time, 'HH:mm');
             const status = record[`${prayer.name}_status`];
             
+            console.log(`Checking ${prayer.name}: current=${currentTime}, prayer=${prayer.time}, status=${status}`);
+            
             // Faqat pending statusdagi va vaqti o'tib ketgan namozlarni tekshiramiz
-            if (status === 'pending' && current.isAfter(prayerTime)) {
-                // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
-                await this.sendMissedPrayerReminder(user, prayer.name);
+            if (status === 'pending') {
+                // Keyingi namoz vaqtini topamiz
+                const nextPrayerIndex = this.getNextPrayerIndex(prayer.name);
+                const nextPrayer = this.getPrayerByIndex(nextPrayerIndex);
+                
+                let isTimeExpired = false;
+                
+                if (nextPrayer) {
+                    // Keyingi namoz bor - keyingi namoz vaqti kirganda vaqt o'tgan hisoblanadi
+                    const nextPrayerTime = moment(times[nextPrayer], 'HH:mm');
+                    isTimeExpired = current.isAfter(nextPrayerTime);
+                } else {
+                    // Keyingi namoz yo'q (isha) - ertangi bomdodgacha
+                    // Kecha 23:59 dan keyin vaqt o'tgan hisoblanadi
+                    isTimeExpired = current.isAfter(moment('23:59', 'HH:mm'));
+                }
+                
+                if (isTimeExpired) {
+                    console.log(`Sending missed reminder for ${prayer.name}`);
+                    // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
+                    await this.sendMissedPrayerReminder(user, prayer.name);
+                }
             }
         }
     }
