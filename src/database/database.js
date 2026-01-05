@@ -59,7 +59,7 @@ class Database {
                 total_count INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users (telegram_id)
+                FOREIGN KEY (user_id) REFERENCES users (id)
             )`,
             `CREATE TABLE IF NOT EXISTS prayer_times (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,7 +71,7 @@ class Database {
                 maghrib_time TIME NOT NULL,
                 isha_time TIME NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users (telegram_id),
+                FOREIGN KEY (user_id) REFERENCES users (id),
                 UNIQUE(user_id, date)
             )`
         ];

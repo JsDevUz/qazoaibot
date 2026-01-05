@@ -26,7 +26,16 @@ class QazoService {
     }
 
     async addQazo(userId, prayerName) {
-        const qazo = await this.getOrCreateQazoCount(userId);
+        // First get the database ID from telegram ID
+        const userQuery = 'SELECT id FROM users WHERE telegram_id = ?';
+        const user = await this.db.get(userQuery, [userId]);
+        
+        if (!user) {
+            throw new Error('User not found in database');
+        }
+        
+        const dbUserId = user.id;
+        const qazo = await this.getOrCreateQazoCount(dbUserId);
         const query = `
             UPDATE qazo_count 
             SET ${prayerName}_count = ${prayerName}_count + 1,
@@ -35,8 +44,8 @@ class QazoService {
             WHERE user_id = ?
         `;
         try {
-            await this.db.run(query, [userId]);
-            return await this.getOrCreateQazoCount(userId);
+            await this.db.run(query, [dbUserId]);
+            return await this.getOrCreateQazoCount(dbUserId);
         } catch (error) {
             console.error('Error adding qazo:', error);
             throw error;
@@ -44,7 +53,16 @@ class QazoService {
     }
 
     async getQazoSummary(userId) {
-        const qazo = await this.getOrCreateQazoCount(userId);
+        // First get the database ID from telegram ID
+        const userQuery = 'SELECT id FROM users WHERE telegram_id = ?';
+        const user = await this.db.get(userQuery, [userId]);
+        
+        if (!user) {
+            throw new Error('User not found in database');
+        }
+        
+        const dbUserId = user.id;
+        const qazo = await this.getOrCreateQazoCount(dbUserId);
         const summary = {
             total: qazo.total_count,
             details: {}
@@ -54,10 +72,20 @@ class QazoService {
             summary.details[prayer] = qazo[`${prayer}_count`] || 0;
         }
         
+        console.log(`Qazo summary for user ${userId} (db_id: ${dbUserId}):`, summary);
         return summary;
     }
 
     async resetQazo(userId) {
+        // First get the database ID from telegram ID
+        const userQuery = 'SELECT id FROM users WHERE telegram_id = ?';
+        const user = await this.db.get(userQuery, [userId]);
+        
+        if (!user) {
+            throw new Error('User not found in database');
+        }
+        
+        const dbUserId = user.id;
         const query = `
             UPDATE qazo_count 
             SET fajr_count = 0, dhuhr_count = 0, asr_count = 0,
@@ -66,8 +94,8 @@ class QazoService {
             WHERE user_id = ?
         `;
         try {
-            await this.db.run(query, [userId]);
-            return await this.getOrCreateQazoCount(userId);
+            await this.db.run(query, [dbUserId]);
+            return await this.getOrCreateQazoCount(dbUserId);
         } catch (error) {
             console.error('Error resetting qazo:', error);
             throw error;

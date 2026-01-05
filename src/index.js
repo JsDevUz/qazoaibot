@@ -527,6 +527,20 @@ class QazoBot {
             await ctx.answerCbQuery();
         });
 
+        this.bot.action('remove_qazo_menu', async (ctx) => {
+            await ctx.editMessageText(
+                '➖ Qazo ayrish:\n\n' +
+                'Qanday usulda ayirmoqchisiz?',
+                Markup.inlineKeyboard([
+                    [Markup.button.callback('📅 Kun/Oy/Yil', 'remove_qazo_period')],
+                    [Markup.button.callback('🔢 Har bir namozni sanab', 'remove_qazo_count')],
+                    [Markup.button.callback('🗓️ Sana oralig\'i', 'remove_qazo_date_range')],
+                    [Markup.button.callback('🔙 Orqaga', 'menu_addqazo')]
+                ])
+            );
+            await ctx.answerCbQuery();
+        });
+
         this.bot.action('remove_qazo_count', async (ctx) => {
             await ctx.editMessageText(
                 '➖ Qazo ayrish:\n\n' +
@@ -628,6 +642,27 @@ class QazoBot {
                 '• "01.12.2025 - 31.12.2025"\n' +
                 '• "15.06.2025 - 15.07.2025"\n' +
                 '• "01.01.2025 - 01.01.2026"\n\n' +
+                '❌ Bekor qilish uchun /cancel ni bosing',
+                Markup.inlineKeyboard([
+                    [Markup.button.callback('❌ Bekor qilish', 'cancel_qazo')]
+                ])
+            );
+            await ctx.answerCbQuery();
+        });
+
+        this.bot.action('remove_qazo_period', async (ctx) => {
+            const userId = ctx.from.id;
+            this.qazoInputService.inputStates.set(userId, { mode: 'remove_period', step: 1 });
+            
+            await ctx.editMessageText(
+                '📅 Kun/Oy/Yil bo\'yicha qazo ayrish:\n\n' +
+                'Qancha vaqt qazo ayirmoqchisiz?\n\n' +
+                'Masalan:\n' +
+                '• "2 yil 3 oy 5 kun"\n' +
+                '• "6 oy 10 kun"\n' +
+                '• "1 yil"\n' +
+                '• "15 kun"\n\n' +
+                'Format: "X yil Y oy Z kun" yoki "X oy Y kun" yoki "X kun" yoki "X yil" yoki "X oy"\n\n' +
                 '❌ Bekor qilish uchun /cancel ni bosing',
                 Markup.inlineKeyboard([
                     [Markup.button.callback('❌ Bekor qilish', 'cancel_qazo')]
@@ -768,26 +803,27 @@ class QazoBot {
             }
             
             const totalDays = this.qazoInputService.calculateTotalDays(periodData);
-            const qazoCount = Math.floor(totalDays * 5); // 5 namoz kuniga
+            const totalQazo = Math.floor(totalDays * 5); // 5 namoz kuniga
+            const qazoPerPrayer = Math.floor(totalQazo / 5); // Har bir namoz uchun
             
             await ctx.reply(
                 `📊 Hisoblash natijasi:\n\n` +
                 `📅 ${periodData.years} yil ${periodData.months} oy ${periodData.days} kun = ${totalDays} kun\n` +
-                `🕌 Jami qazo: ${qazoCount} ta namoz\n\n` +
+                `🕌 Jami qazo: ${totalQazo} ta namoz\n\n` +
                 `Har bir namoz uchun taqsimlash:\n` +
-                `🌅 Bomdod: ${qazoCount} ta\n` +
-                `☀️ Peshin: ${qazoCount} ta\n` +
-                `🌇 Asr: ${qazoCount} ta\n` +
-                `🌆 Shom: ${qazoCount} ta\n` +
-                `🌙 Qufton: ${qazoCount} ta\n\n` +
+                `🌅 Bomdod: ${qazoPerPrayer} ta\n` +
+                `☀️ Peshin: ${qazoPerPrayer} ta\n` +
+                `🌇 Asr: ${qazoPerPrayer} ta\n` +
+                `🌆 Shom: ${qazoPerPrayer} ta\n` +
+                `🌙 Qufton: ${qazoPerPrayer} ta\n\n` +
                 `Bu qazolarni ayirishni tasdiqlaysizmi?`,
                 Markup.inlineKeyboard([
-                    [Markup.button.callback('✅ Tasdiqlash', `confirm_remove_period_${qazoCount}`)],
+                    [Markup.button.callback('✅ Tasdiqlash', `confirm_remove_period_${qazoPerPrayer}`)],
                     [Markup.button.callback('❌ Bekor qilish', 'cancel_qazo')]
                 ])
             );
             
-            this.qazoInputService.inputStates.set(userId, { ...state, step: 2, qazoCount, periodData });
+            this.qazoInputService.inputStates.set(userId, { ...state, step: 2, qazoCount: qazoPerPrayer, periodData });
         }
     }
 
