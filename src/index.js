@@ -744,8 +744,13 @@ class QazoBot {
                 const pendingKey = `${userId}_${prayer}`;
                 const activeKey = `${userId}_${prayer}_${today}`;
                 
+                // Faqat read va missed da activeReminders ni tozalash
+                if (action === 'read' || action === 'missed') {
+                    this.reminderService.activeReminders.delete(activeKey);
+                }
+                
+                // Pending eslatmalarni har doim tozalash
                 this.reminderService.pendingReminders.delete(pendingKey);
-                this.reminderService.activeReminders.delete(activeKey);
                 
                 if (action === 'read') {
                     await this.prayerService.updatePrayerStatus(userId, today, prayer, 'read');
