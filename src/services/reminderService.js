@@ -122,28 +122,35 @@ class ReminderService {
             
             console.log(`Checking ${prayer.name}: current=${currentTime}, prayer=${prayer.time}, status=${status}`);
             
-            // Faqat pending statusdagi va vaqti o'tib ketgan namozlarni tekshiramiz
+            // Faqat pending statusdagi namozlarni tekshiramiz
             if (status === 'pending') {
+                const activeKey = `${user.telegram_id}_${prayer.name}_${today}`;
+                
                 // Keyingi namoz vaqtini topamiz
                 const nextPrayerIndex = this.getNextPrayerIndex(prayer.name);
                 const nextPrayer = this.getPrayerByIndex(nextPrayerIndex);
                 
-                let isTimeExpired = false;
+                let shouldSendReminder = false;
                 
                 if (nextPrayer) {
                     // Keyingi namoz bor - keyingi namoz vaqti kirganda vaqt o'tgan hisoblanadi
                     const nextPrayerTime = moment(times[nextPrayer], 'HH:mm');
-                    isTimeExpired = current.isAfter(nextPrayerTime);
+                    shouldSendReminder = current.isAfter(nextPrayerTime);
                 } else {
                     // Keyingi namoz yo'q (isha) - ertangi bomdodgacha
                     // Kecha 23:59 dan keyin vaqt o'tgan hisoblanadi
-                    isTimeExpired = current.isAfter(moment('23:59', 'HH:mm'));
+                    shouldSendReminder = current.isAfter(moment('23:59', 'HH:mm'));
                 }
                 
-                if (isTimeExpired) {
-                    console.log(`Sending missed reminder for ${prayer.name}`);
-                    // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
-                    await this.sendMissedPrayerReminder(user, prayer.name);
+                // Vaqt o'tgan bo'lsa yoki activeReminders da bo'lmasa eslatma yuboramiz
+                if (shouldSendReminder || !this.activeReminders.has(activeKey)) {
+                    console.log(`Sending pending reminder for ${prayer.name}`);
+                    // Vaqt o'tgan bo'lsa missed, aks holda later eslatma yuboramiz
+                    if (shouldSendReminder) {
+                        await this.sendMissedPrayerReminder(user, prayer.name);
+                    } else {
+                        await this.sendPendingPrayerReminder(user, prayer.name);
+                    }
                 }
             }
         }
