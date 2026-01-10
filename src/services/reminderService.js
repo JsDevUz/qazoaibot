@@ -12,6 +12,7 @@ class ReminderService {
         this.prayerTimesService = prayerTimesService;
         this.activeReminders = new Map();
         this.pendingReminders = new Map(); // Yangi: pending eslatmalarni saqlash
+        this.pendingPrayerReminders = new Map(); // Pending prayer reminders uchun
         this.checkInterval = null;
     }
 
@@ -125,6 +126,7 @@ class ReminderService {
             // Faqat pending statusdagi namozlarni tekshiramiz
             if (status === 'pending') {
                 const activeKey = `${user.telegram_id}_${prayer.name}_${today}`;
+                const pendingKey = `${user.telegram_id}_${prayer.name}`;
                 
                 // Keyingi namoz vaqtini topamiz
                 const nextPrayerIndex = this.getNextPrayerIndex(prayer.name);
@@ -142,14 +144,16 @@ class ReminderService {
                     shouldSendReminder = current.isAfter(moment('23:59', 'HH:mm'));
                 }
                 
-                // Vaqt o'tgan bo'lsa yoki activeReminders da bo'lmasa eslatma yuboramiz
-                if (shouldSendReminder || !this.activeReminders.has(activeKey)) {
+                // Vaqt o'tgan bo'lsa yoki pending prayer reminder yo'q bo'lsa eslatma yuboramiz
+                if (shouldSendReminder || !this.pendingPrayerReminders.has(pendingKey)) {
                     console.log(`Sending pending reminder for ${prayer.name}`);
                     // Vaqt o'tgan bo'lsa missed, aks holda later eslatma yuboramiz
                     if (shouldSendReminder) {
                         await this.sendMissedPrayerReminder(user, prayer.name);
                     } else {
                         await this.sendPendingPrayerReminder(user, prayer.name);
+                        // Pending prayer reminder ni saqlaymiz
+                        this.pendingPrayerReminders.set(pendingKey, true);
                     }
                 }
             }
@@ -325,6 +329,7 @@ class ReminderService {
         console.log('Clearing daily reminders...');
         this.activeReminders.clear();
         this.pendingReminders.clear();
+        this.pendingPrayerReminders.clear();
     }
 }
 

@@ -752,6 +752,11 @@ class QazoBot {
                 // Pending eslatmalarni har doim tozalash
                 this.reminderService.pendingReminders.delete(pendingKey);
                 
+                // "Later" da pendingPrayerReminders ni tozalash
+                if (action === 'later') {
+                    this.reminderService.pendingPrayerReminders.delete(pendingKey);
+                }
+                
                 if (action === 'read') {
                     await this.prayerService.updatePrayerStatus(userId, today, prayer, 'read');
                     await ctx.editMessageText(`✅ ${prayer} namozi o'qilgan deb belgilandi!`);
