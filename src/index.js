@@ -201,30 +201,6 @@ class QazoBot {
                 await ctx.editMessageText('❌ Xatolik yuz berdi. Qaytadan urining.', Markup.inlineKeyboard([
                     [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
                 ]));
-            }
-            
-            await ctx.answerCbQuery();
-        });
-
-        this.bot.action(/confirm_remove_period_(.+)/, async (ctx) => {
-            const userId = ctx.from.id;
-            const qazoCount = parseInt(ctx.match[1]);
-            
-            const qazoData = {
-                fajr: -qazoCount,
-                dhuhr: -qazoCount,
-                asr: -qazoCount,
-                maghrib: -qazoCount,
-                isha: -qazoCount
-            };
-            
-            try {
-                await this.qazoInputService.addQazoToDatabase(userId, qazoData);
-                await ctx.editMessageText('✅ Qazolar muvaffaqiyatli ayirildi!', Markup.inlineKeyboard([
-                    [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
-                ]));
-                this.qazoInputService.inputStates.delete(userId);
-            } catch (error) {
                 await ctx.editMessageText('❌ Xatolik yuz berdi. Qaytadan urining.', Markup.inlineKeyboard([
                     [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
                 ]));
@@ -542,14 +518,23 @@ class QazoBot {
         });
 
         this.bot.action('remove_qazo_count', async (ctx) => {
+            const userId = ctx.from.id;
+            this.qazoInputService.inputStates.set(userId, { mode: 'remove_count', step: 1, prayerIndex: 0 });
+            
+            const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+            const prayerNames = {
+                fajr: '🌅 Bomdod',
+                dhuhr: '☀️ Peshin',
+                asr: '🌇 Asr',
+                maghrib: '🌆 Shom',
+                isha: '🌙 Qufton'
+            };
+            
             await ctx.editMessageText(
-                '➖ Qazo ayrish:\n\n' +
-                'Qanday usulda ayirmoqchisiz?',
+                '🔢 Har bir namozni sanab qazo ayrish:\n\n' +
+                `${prayerNames[prayers[0]]} nechta qazo?`,
                 Markup.inlineKeyboard([
-                    [Markup.button.callback('📅 Kun/Oy/Yil', 'remove_qazo_period')],
-                    [Markup.button.callback('🔢 Har bir namozni sanab', 'remove_qazo_count')],
-                    [Markup.button.callback('🗓️ Sana oralig\'i', 'remove_qazo_date_range')],
-                    [Markup.button.callback('🔙 Orqaga', 'menu_addqazo')]
+                    [Markup.button.callback('❌ Bekor qilish', 'cancel_qazo')]
                 ])
             );
             await ctx.answerCbQuery();
@@ -842,6 +827,15 @@ class QazoBot {
     }
 
     async handleRemoveCountInput(ctx, userId, text, state) {
+        const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+        const prayerNames = {
+            fajr: '🌅 Bomdod',
+            dhuhr: '☀️ Peshin',
+            asr: '🌇 Asr',
+            maghrib: '🌆 Shom',
+            isha: '🌙 Qufton'
+        };
+        
         if (state.step === 1) {
             const count = parseInt(text.trim());
             
@@ -850,22 +844,37 @@ class QazoBot {
                 return;
             }
             
-            await ctx.reply(
-                `🔢 Qazo ayirish:\n\n` +
-                `🌅 Bomdod: ${count} ta\n` +
-                `☀️ Peshin: ${count} ta\n` +
-                `🌇 Asr: ${count} ta\n` +
-                `🌆 Shom: ${count} ta\n` +
-                `🌙 Qufton: ${count} ta\n\n` +
-                `Jami: ${count * 5} ta qazo ayiriladi\n\n` +
-                `Tasdiqlaysizmi?`,
-                Markup.inlineKeyboard([
-                    [Markup.button.callback('✅ Tasdiqlash', `confirm_remove_count_${count}`)],
-                    [Markup.button.callback('❌ Bekor qilish', 'cancel_qazo')]
-                ])
-            );
+            // Birinchi namoz uchun count ni saqlaymiz
+            const qazoCounts = {};
+            qazoCounts[prayers[state.prayerIndex]] = count;
             
-            this.qazoInputService.inputStates.set(userId, { ...state, step: 2, count });
+            // Agar oxirgi namoz bo'lsa, tasdiqlash ko'rsatamiz
+            if (state.prayerIndex === prayers.length - 1) {
+                await ctx.reply(
+                    `🔢 Qazo ayirish tasdiqlash:\n\n` +
+                    Object.entries(qazoCounts).map(([prayer, count]) => 
+                        `${prayerNames[prayer]}: ${count} ta`
+                    ).join('\n') +
+                    `\n\nJami: ${Object.values(qazoCounts).reduce((a, b) => a + b, 0)} ta qazo ayiriladi\n\n` +
+                    `Tasdiqlaysizmi?`,
+                    Markup.inlineKeyboard([
+                        [Markup.button.callback('✅ Tasdiqlash', `confirm_remove_count_${JSON.stringify(qazoCounts)}`)],
+                        [Markup.button.callback('❌ Bekor qilish', 'cancel_qazo')]
+                    ])
+                );
+                this.qazoInputService.inputStates.set(userId, { ...state, step: 2, qazoCounts });
+            } else {
+                // Keyingi namozga o'tamiz
+                const nextPrayerIndex = state.prayerIndex + 1;
+                await ctx.reply(
+                    `🔢 Har bir namozni sanab qazo ayrish:\n\n` +
+                    `${prayerNames[prayers[nextPrayerIndex]]} nechta qazo?`,
+                    Markup.inlineKeyboard([
+                        [Markup.button.callback('❌ Bekor qilish', 'cancel_qazo')]
+                    ])
+                );
+                this.qazoInputService.inputStates.set(userId, { ...state, prayerIndex: nextPrayerIndex, qazoCounts });
+            }
         }
     }
 

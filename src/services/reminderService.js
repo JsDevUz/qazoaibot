@@ -305,6 +305,12 @@ class ReminderService {
         return index >= 0 && index < prayers.length ? prayers[index] : null;
     }
 
+    getNextPrayerIndex(prayerName) {
+        const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+        const currentIndex = prayers.indexOf(prayerName);
+        return currentIndex < prayers.length - 1 ? currentIndex + 1 : -1;
+    }
+
     async getPrayerTimes(userId, date) {
         try {
             const user = await this.userService.getUser(userId);
