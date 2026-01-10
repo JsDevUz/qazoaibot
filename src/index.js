@@ -63,7 +63,7 @@ class QazoBot {
                     [Markup.button.callback('📊 Qazo holati', 'menu_qazo')],
                     [Markup.button.callback('📅 Bugungi namozlar', 'menu_today')],
                     [Markup.button.callback('🕐 Namoz vaqtlari', 'menu_times')],
-                    [Markup.button.callback('📝 Qazo qo\'shish', 'menu_addqazo')],
+                    [Markup.button.callback('📝 Qazolarni yangilash', 'menu_addqazo')],
                     [Markup.button.callback('⚙️ Sozlamalar', 'menu_settings')],
                     [Markup.button.callback('❓ Yordam', 'menu_help')]
                 ])
@@ -97,7 +97,7 @@ class QazoBot {
                     [Markup.button.callback('📊 Qazo holati', 'menu_qazo')],
                     [Markup.button.callback('📅 Bugungi namozlar', 'menu_today')],
                     [Markup.button.callback('🕐 Namoz vaqtlari', 'menu_times')],
-                    [Markup.button.callback('📝 Qazo qo\'shish', 'menu_addqazo')],
+                    [Markup.button.callback('📝 Qazolarni yangilash', 'menu_addqazo')],
                     [Markup.button.callback('⚙️ Sozlamalar', 'menu_settings')],
                     [Markup.button.callback('❓ Yordam', 'menu_help')]
                 ])
@@ -481,7 +481,7 @@ class QazoBot {
                 '📝 Qazo boshqaruvi:\n\n' +
                 'Qanday amalni bajarmoqchisiz?',
                 Markup.inlineKeyboard([
-                    [Markup.button.callback('➕ Qazo qo\'shish', 'add_qazo_menu')],
+                    [Markup.button.callback('➕ Qazolarni yangilash', 'add_qazo_menu')],
                     [Markup.button.callback('➖ Qazo ayrish', 'remove_qazo_menu')],
                     [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
                 ])
@@ -683,7 +683,7 @@ class QazoBot {
                 '• � Qazo holati - qazolaringizni ko\'rish\n' +
                 '• � Bugungi namozlar - kunlik namoz holati\n' +
                 '• � Namoz vaqtlari - bugungi vaqtlar\n' +
-                '• � Qazo qo\'shish - eski qazolarni kiritish\n' +
+                '• � Qazolarni yangilash - eski qazolarni kiritish\n' +
                 '• ⚙️ Sozlamalar - shahar va vaqt zonasi\n\n' +
                 '🤖 Bot avtomatik ravishda:\n' +
                 '• Namoz vaqtlarida eslatish yuboradi\n' +
@@ -839,8 +839,8 @@ class QazoBot {
         if (state.step === 1) {
             const count = parseInt(text.trim());
             
-            if (isNaN(count) || count <= 0) {
-                await ctx.reply('❌ Noto\'g\'ri son! Iltimos, musbat son kiriting:');
+            if (isNaN(count) || count < 0) {
+                await ctx.reply('❌ Noto\'g\'ri son! Iltimos, musbat yoki nol son kiriting:');
                 return;
             }
             
