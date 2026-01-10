@@ -845,7 +845,7 @@ class QazoBot {
             }
             
             // Birinchi namoz uchun count ni saqlaymiz
-            const qazoCounts = {};
+            const qazoCounts = state.qazoCounts || {};
             qazoCounts[prayers[state.prayerIndex]] = count;
             
             // Agar oxirgi namoz bo'lsa, tasdiqlash ko'rsatamiz
