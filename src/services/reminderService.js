@@ -144,17 +144,17 @@ class ReminderService {
                     shouldSendReminder = current.isAfter(moment('23:59', 'HH:mm'));
                 }
                 
-                // Vaqt o'tgan bo'lsa yoki pending prayer reminder yo'q bo'lsa eslatma yuboramiz
-                if (shouldSendReminder || !this.pendingPrayerReminders.has(pendingKey)) {
+                // Faqat vaqt o'tgan bo'lsa eslatma yuboramiz
+                if (shouldSendReminder) {
+                    console.log(`Sending missed reminder for ${prayer.name}`);
+                    // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
+                    await this.sendMissedPrayerReminder(user, prayer.name);
+                } else if (!this.pendingPrayerReminders.has(pendingKey)) {
+                    // Vaqt o'tmagan bo'lsa, faqat bir marta eslatamiz
                     console.log(`Sending pending reminder for ${prayer.name}`);
-                    // Vaqt o'tgan bo'lsa missed, aks holda later eslatma yuboramiz
-                    if (shouldSendReminder) {
-                        await this.sendMissedPrayerReminder(user, prayer.name);
-                    } else {
-                        await this.sendPendingPrayerReminder(user, prayer.name);
-                        // Pending prayer reminder ni saqlaymiz
-                        this.pendingPrayerReminders.set(pendingKey, true);
-                    }
+                    await this.sendPendingPrayerReminder(user, prayer.name);
+                    // Pending prayer reminder ni saqlaymiz
+                    this.pendingPrayerReminders.set(pendingKey, true);
                 }
             }
         }

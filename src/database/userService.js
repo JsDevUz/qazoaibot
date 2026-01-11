@@ -68,6 +68,16 @@ class UserService {
             throw error;
         }
     }
+
+    async getUserTimezone(telegramId) {
+        try {
+            const user = await this.getUser(telegramId);
+            return user ? user.timezone : null;
+        } catch (error) {
+            console.error('Error getting user timezone:', error);
+            return null;
+        }
+    }
 }
 
 module.exports = UserService;

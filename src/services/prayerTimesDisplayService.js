@@ -1,4 +1,5 @@
 const { Markup } = require('telegraf');
+const moment = require('moment-timezone');
 
 class PrayerTimesDisplayService {
     constructor(bot, prayerTimesService, userService) {
@@ -79,10 +80,14 @@ class PrayerTimesDisplayService {
     }
 
     getPrayerStatus(prayerTime, currentTime) {
-        const current = new Date(`1970-01-01T${currentTime}:00`);
-        const prayer = new Date(`1970-01-01T${prayerTime}:00`);
+        // currentTime allaqoq "HH:mm" formatda bo'lishi kerak
+        // Agar currentTime "10:56:27" bo'lsa, faqat "10:56" ni olish kerak
+        const timeOnly = currentTime.split(':')[0] + ':' + currentTime.split(':')[1];
         
-        const diffMinutes = (prayer - current) / (1000 * 60);
+        const current = moment(timeOnly, 'HH:mm');
+        const prayer = moment(prayerTime, 'HH:mm');
+        
+        const diffMinutes = prayer.diff(current, 'minutes');
         
         if (diffMinutes > 0 && diffMinutes <= 30) {
             return '🔸 Tez orada';

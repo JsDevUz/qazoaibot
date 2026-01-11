@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
+const moment = require('moment-timezone');
 const Database = require('./database/database');
 const UserService = require('./database/userService');
 const PrayerService = require('./database/prayerService');
@@ -46,9 +47,7 @@ class QazoBot {
             const user = ctx.from;
             await this.userService.createUser(user.id, user.username, user.first_name);
             
-            // User online bo'lganda pending eslatmalarni tekshiramiz
-            await this.reminderService.checkUserPendingPrayers({ telegram_id: user.id });
-            
+            // Avval start javobini yuboramiz
             await ctx.reply(
                 '🕌 Assalomu alaykum! Qazo AI botiga xush kelibsiz!\n\n' +
                 'Bu bot sizning namozlaringizni kuzatib boradi va qazo qilgan namozlaringizni hisoblaydi.\n\n' +
@@ -68,6 +67,32 @@ class QazoBot {
                     [Markup.button.callback('❓ Yordam', 'menu_help')]
                 ])
             );
+            
+            // Keyin pending eslatmalarni tekshiramiz
+            const userTimezone = await this.userService.getUserTimezone(user.id);
+            const currentTime = moment().tz(userTimezone || 'Asia/Tashkent').format('HH:mm');
+            
+            // Faqat bugungi namozlar uchun eslatma yuboramiz
+            const today = new Date().toISOString().split('T')[0];
+            const todayRecord = await this.prayerService.getOrCreatePrayerRecord(user.id, today);
+            
+            // Bugungi pending namozlarni tekshiramiz
+            const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+            for (const prayer of prayers) {
+                const status = todayRecord[`${prayer}_status`];
+                if (status === 'pending') {
+                    const times = await this.reminderService.getPrayerTimes(user.id, today);
+                    if (times) {
+                        const prayerTime = moment(times[prayer], 'HH:mm');
+                        const current = moment(currentTime, 'HH:mm');
+                        
+                        // Agar namoz vaqti o'tgan bo'lsa eslatma yuboramiz
+                        if (current.isAfter(prayerTime)) {
+                            await this.reminderService.sendMissedPrayerReminder({ telegram_id: user.id }, prayer);
+                        }
+                    }
+                }
+            }
         });
 
         this.bot.command('settings', async (ctx) => {
@@ -211,21 +236,30 @@ class QazoBot {
 
         this.bot.action(/confirm_remove_count_(.+)/, async (ctx) => {
             const userId = ctx.from.id;
-            const count = parseInt(ctx.match[1]);
+            let qazoData;
             
-            const state = this.qazoInputService.inputStates.get(userId);
-            
-            if (!state || !state.counts) {
-                await ctx.editMessageText('❌ Ma\'lumotlar topilmadi. Qaytadan boshlang.', Markup.inlineKeyboard([
-                    [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
-                ]));
-                await ctx.answerCbQuery();
-                return;
-            }
-            
-            const qazoData = {};
-            for (const [prayer, prayerCount] of Object.entries(state.counts)) {
-                qazoData[prayer] = -prayerCount;
+            try {
+                // Yangi format: prayer:count,prayer:count
+                const dataString = ctx.match[1];
+                const entries = dataString.split(',').map(entry => {
+                    const [prayer, count] = entry.split(':');
+                    return [prayer, parseInt(count)];
+                });
+                
+                qazoData = {};
+                entries.forEach(([prayer, count]) => {
+                    qazoData[prayer] = -count;
+                });
+            } catch (error) {
+                // Eski format - bitta son
+                const count = parseInt(ctx.match[1]);
+                qazoData = {
+                    fajr: -count,
+                    dhuhr: -count,
+                    asr: -count,
+                    maghrib: -count,
+                    isha: -count
+                };
             }
             
             try {
@@ -850,19 +884,23 @@ class QazoBot {
             
             // Agar oxirgi namoz bo'lsa, tasdiqlash ko'rsatamiz
             if (state.prayerIndex === prayers.length - 1) {
+                // Qazo counts ni qisqartirilgan formatda yuboramiz
+                const qazoData = {};
+                Object.entries(qazoCounts).forEach(([prayer, count]) => {
+                    qazoData[prayer] = -count;
+                });
+                
+                // Short formatda yuboramiz - faqat bir nechta ekanligini ko'rsatamiz
                 await ctx.reply(
                     `🔢 Qazo ayirish tasdiqlash:\n\n` +
-                    Object.entries(qazoCounts).map(([prayer, count]) => 
-                        `${prayerNames[prayer]}: ${count} ta`
-                    ).join('\n') +
-                    `\n\nJami: ${Object.values(qazoCounts).reduce((a, b) => a + b, 0)} ta qazo ayiriladi\n\n` +
+                    `Jami: ${Object.values(qazoCounts).reduce((a, b) => a + b, 0)} ta qazo ayiriladi\n\n` +
                     `Tasdiqlaysizmi?`,
                     Markup.inlineKeyboard([
-                        [Markup.button.callback('✅ Tasdiqlash', `confirm_remove_count_${JSON.stringify(qazoCounts)}`)],
+                        [Markup.button.callback('✅ Tasdiqlash', `confirm_remove_count_${Object.entries(qazoCounts).map(([p, c]) => `${p}:${c}`).join(',')}`)],
                         [Markup.button.callback('❌ Bekor qilish', 'cancel_qazo')]
                     ])
                 );
-                this.qazoInputService.inputStates.set(userId, { ...state, step: 2, qazoCounts });
+                this.qazoInputService.inputStates.set(userId, { ...state, step: 2, qazoData });
             } else {
                 // Keyingi namozga o'tamiz
                 const nextPrayerIndex = state.prayerIndex + 1;
