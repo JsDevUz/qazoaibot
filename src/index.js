@@ -624,6 +624,9 @@ class QazoBot {
                             [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
                         ])
                     );
+                    
+                    // Klaviaturani yopamiz
+                    await ctx.reply('🏠 Bosh menu:', Markup.removeKeyboard());
                 } else {
                     await ctx.reply(
                         '❌ Kechirasiz, bu lokatsiya uchun shaharni aniqlab bo\'lmadi.\n\n' +
@@ -635,6 +638,9 @@ class QazoBot {
                             [Markup.button.callback('🌍 Farg\'ona', 'set_fergona')]
                         ])
                     );
+                    
+                    // Klaviaturani yopamiz
+                    await ctx.reply('🏠 Bosh menu:', Markup.removeKeyboard());
                 }
             } catch (error) {
                 console.error('Error processing location:', error);
@@ -644,9 +650,12 @@ class QazoBot {
                         [Markup.button.callback('🌍 Toshkent', 'set_tashkent')],
                         [Markup.button.callback('🌍 Samarqand', 'set_samarkand')],
                         [Markup.button.callback('🌍 Buxoro', 'set_bukhara')],
-                        [Markup.button.callback('🌍 Farg\'ona', 'set_fergana')]
+                        [Markup.button.callback('🌍 Farg\'ona', 'set_fergona')]
                     ])
                 );
+                
+                // Klaviaturani yopamiz
+                await ctx.reply('🏠 Bosh menu:', Markup.removeKeyboard());
             }
         });
 
