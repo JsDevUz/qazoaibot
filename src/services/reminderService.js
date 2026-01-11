@@ -149,12 +149,6 @@ class ReminderService {
                     console.log(`Sending missed reminder for ${prayer.name}`);
                     // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
                     await this.sendMissedPrayerReminder(user, prayer.name);
-                } else if (!this.pendingPrayerReminders.has(pendingKey)) {
-                    // Vaqt o'tmagan bo'lsa, faqat bir marta eslatamiz
-                    console.log(`Sending pending reminder for ${prayer.name}`);
-                    await this.sendPendingPrayerReminder(user, prayer.name);
-                    // Pending prayer reminder ni saqlaymiz
-                    this.pendingPrayerReminders.set(pendingKey, true);
                 }
             }
         }
