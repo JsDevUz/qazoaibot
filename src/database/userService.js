@@ -7,8 +7,8 @@ class UserService {
 
     async createUser(telegramId, username, firstName) {
         const query = `
-            INSERT OR REPLACE INTO users (telegram_id, username, first_name)
-            VALUES (?, ?, ?)
+            INSERT OR REPLACE INTO users (telegram_id, username, first_name, created_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
         `;
         try {
             await this.db.run(query, [telegramId, username, firstName]);

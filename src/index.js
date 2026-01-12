@@ -9,6 +9,7 @@ const PrayerTimesService = require('./services/prayerTimesService');
 const ReminderService = require('./services/reminderService');
 const PrayerTimesDisplayService = require('./services/prayerTimesDisplayService');
 const QazoInputService = require('./services/qazoInputService');
+const AdminService = require('./services/adminService');
 
 class QazoBot {
     constructor() {
@@ -21,6 +22,7 @@ class QazoBot {
         this.reminderService = null;
         this.prayerTimesDisplayService = null;
         this.qazoInputService = null;
+        this.adminService = null;
         this.currentPrayerChecks = new Map();
     }
 
@@ -34,6 +36,7 @@ class QazoBot {
         
         this.prayerTimesDisplayService = new PrayerTimesDisplayService(this.bot, this.prayerTimesService, this.userService);
         this.qazoInputService = new QazoInputService(this.bot, this.qazoService, this.userService, this.db);
+        this.adminService = new AdminService(this.bot, this.userService);
         
         this.setupHandlers();
         this.prayerTimesDisplayService.setupHandlers();
@@ -45,7 +48,13 @@ class QazoBot {
     setupHandlers() {
         this.bot.start(async (ctx) => {
             const user = ctx.from;
-            await this.userService.createUser(user.id, user.username, user.first_name);
+            const existingUser = await this.userService.getUser(user.id);
+            
+            if (!existingUser) {
+                // Yangi user - saqlaymiz va admin xabari yuboramiz
+                const newUser = await this.userService.createUser(user.id, user.username, user.first_name);
+                await this.adminService.sendNewUserNotification(newUser);
+            }
             
             // Avval start javobini yuboramiz
             await ctx.reply(
@@ -175,6 +184,33 @@ class QazoBot {
             // Command larni olib tashlaymiz, faqat action lar bilan ishlamiz
         });
 
+        // Admin commandlari
+        this.bot.command('stats', async (ctx) => {
+            if (!this.adminService.isAdmin(ctx.from.id)) {
+                await ctx.reply('❌ Sizda bu commandni ishlatish uchun ruxsat yo\'q!');
+                return;
+            }
+            await this.adminService.sendStatsNotification();
+            await ctx.reply('📊 Statistika adminga yuborildi!');
+        });
+
+        this.bot.command('broadcast', async (ctx) => {
+            if (!this.adminService.isAdmin(ctx.from.id)) {
+                await ctx.reply('❌ Sizda bu commandni ishlatish uchun ruxsat yo\'q!');
+                return;
+            }
+            
+            const message = ctx.message.text.replace('/broadcast', '').trim();
+            if (!message) {
+                await ctx.reply('❌ Xabar matni kiritilmadi! Masalan: /broadcast Assalomu alaykum!');
+                return;
+            }
+            
+            await ctx.reply('📢 Xabar yuborilmoqda...');
+            const result = await this.adminService.sendBroadcastToAllUsers(message);
+            await ctx.reply(`✅ Xabar muvaffaqiyatli ${result.successCount} ta userga yuborildi!`);
+        });
+
         this.bot.action('save_qazo_status', async (ctx) => {
             await ctx.reply('✅ Qazo holati saqlab qolindi!', Markup.inlineKeyboard([
                 [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
@@ -207,7 +243,7 @@ class QazoBot {
                 dhuhr: '☀️ Peshin',
                 asr: '🌇 Asr',
                 maghrib: '🌆 Shom',
-                isha: '🌙 Qufton'
+                isha: '🌙 Xufton'
             };
             
             const statusEmojis = {
@@ -409,7 +445,7 @@ class QazoBot {
                 dhuhr: '☀️ Peshin', 
                 asr: '🌇 Asr',
                 maghrib: '🌆 Shom',
-                isha: '🌙 Qufton'
+                isha: '🌙 Xufton'
             };
 
             const currentTime = new Date().toLocaleTimeString('uz-UZ', { 
@@ -474,7 +510,7 @@ class QazoBot {
                 dhuhr: '☀️ Peshin',
                 asr: '🌇 Asr',
                 maghrib: '🌆 Shom',
-                isha: '🌙 Qufton'
+                isha: '🌙 Xufton'
             };
             
             let message = '📊 Sizning qazo holatingiz:\n\n';
@@ -499,7 +535,7 @@ class QazoBot {
                 dhuhr: '☀️ Peshin',
                 asr: '🌇 Asr',
                 maghrib: '🌆 Shom',
-                isha: '🌙 Qufton'
+                isha: '🌙 Xufton'
             };
             
             const statusEmojis = {
@@ -540,7 +576,7 @@ class QazoBot {
                 dhuhr: '☀️ Peshin', 
                 asr: '🌇 Asr',
                 maghrib: '🌆 Shom',
-                isha: '🌙 Qufton'
+                isha: '🌙 Xufton'
             };
 
             const currentTime = new Date().toLocaleTimeString('uz-UZ', { 
@@ -583,7 +619,7 @@ class QazoBot {
                 '📝 Qazo boshqaruvi:\n\n' +
                 'Qanday amalni bajarmoqchisiz?',
                 Markup.inlineKeyboard([
-                    [Markup.button.callback('➕ Qazolarni yangilash', 'add_qazo_menu')],
+                    [Markup.button.callback('➕ Qazolarni qo\'shish', 'add_qazo_menu')],
                     [Markup.button.callback('➖ Qazo ayrish', 'remove_qazo_menu')],
                     [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
                 ])
@@ -629,7 +665,7 @@ class QazoBot {
                 dhuhr: '☀️ Peshin',
                 asr: '🌇 Asr',
                 maghrib: '🌆 Shom',
-                isha: '🌙 Qufton'
+                isha: '🌙 Xufton'
             };
             
             await ctx.editMessageText(
@@ -927,7 +963,7 @@ class QazoBot {
                 `☀️ Peshin: ${qazoPerPrayer} ta\n` +
                 `🌇 Asr: ${qazoPerPrayer} ta\n` +
                 `🌆 Shom: ${qazoPerPrayer} ta\n` +
-                `🌙 Qufton: ${qazoPerPrayer} ta\n\n` +
+                `🌙 Xufton: ${qazoPerPrayer} ta\n\n` +
                 `Bu qazolarni ayirishni tasdiqlaysizmi?`,
                 Markup.inlineKeyboard([
                     [Markup.button.callback('✅ Tasdiqlash', `confirm_remove_period_${qazoPerPrayer}`)],
@@ -946,7 +982,7 @@ class QazoBot {
             dhuhr: '☀️ Peshin',
             asr: '🌇 Asr',
             maghrib: '🌆 Shom',
-            isha: '🌙 Qufton'
+            isha: '🌙 Xufton'
         };
         
         if (state.step === 1) {

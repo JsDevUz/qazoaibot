@@ -38,7 +38,7 @@ class PrayerTimesDisplayService {
                 dhuhr: '☀️ Peshin', 
                 asr: '🌇 Asr',
                 maghrib: '🌆 Shom',
-                isha: '🌙 Qufton'
+                isha: '🌙 Xufton'
             };
 
             const currentTime = new Date().toLocaleTimeString('uz-UZ', { 
@@ -119,7 +119,7 @@ class PrayerTimesDisplayService {
             dhuhr: '☀️ Peshin', 
             asr: '🌇 Asr',
             maghrib: '🌆 Shom',
-            isha: '🌙 Qufton'
+            isha: '🌙 Xufton'
         };
 
         let message = `🕌 ${user.city || 'Toshkent'} uchun bugungi namoz vaqtlari\n\n`;

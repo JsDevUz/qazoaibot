@@ -85,7 +85,7 @@ class PrayerTimesService {
             { name: 'dhuhr', time: times.dhuhr, displayName: '☀️ Peshin' },
             { name: 'asr', time: times.asr, displayName: '🌇 Asr' },
             { name: 'maghrib', time: times.maghrib, displayName: '🌆 Shom' },
-            { name: 'isha', time: times.isha, displayName: '🌙 Qufton' }
+            { name: 'isha', time: times.isha, displayName: '🌙 Xufton' }
         ];
         
         const current = moment(currentTime, 'HH:mm');

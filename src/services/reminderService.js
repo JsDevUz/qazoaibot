@@ -86,7 +86,7 @@ class ReminderService {
             { name: 'dhuhr', time: times.dhuhr, displayName: '☀️ Peshin' },
             { name: 'asr', time: times.asr, displayName: '🌇 Asr' },
             { name: 'maghrib', time: times.maghrib, displayName: '🌆 Shom' },
-            { name: 'isha', time: times.isha, displayName: '🌙 Qufton' }
+            { name: 'isha', time: times.isha, displayName: '🌙 Xufton' }
         ];
         
         for (const prayer of prayers) {
@@ -175,7 +175,7 @@ class ReminderService {
                 dhuhr: '☀️ Peshin',
                 asr: '🌇 Asr',
                 maghrib: '🌆 Shom',
-                isha: '🌙 Qufton'
+                isha: '🌙 Xufton'
             };
             
             await this.bot.telegram.sendMessage(
@@ -196,7 +196,7 @@ class ReminderService {
             dhuhr: '☀️ Peshin',
             asr: '🌇 Asr',
             maghrib: '🌆 Shom',
-            isha: '🌙 Qufton'
+            isha: '🌙 Xufton'
         };
         
         const key = `${user.telegram_id}_${prayerName}`;
@@ -233,7 +233,7 @@ class ReminderService {
             dhuhr: '☀️ Peshin',
             asr: '🌇 Asr',
             maghrib: '🌆 Shom',
-            isha: '🌙 Qufton'
+            isha: '🌙 Xufton'
         };
         
         const key = `${user.telegram_id}_${prayerName}`;

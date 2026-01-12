@@ -93,7 +93,7 @@ class QazoInputService {
                 `☀️ Peshin: ${qazoPerPrayer} ta\n` +
                 `🌇 Asr: ${qazoPerPrayer} ta\n` +
                 `🌆 Shom: ${qazoPerPrayer} ta\n` +
-                `🌙 Qufton: ${qazoPerPrayer} ta\n\n` +
+                `🌙 Xufton: ${qazoPerPrayer} ta\n\n` +
                 `Bu qazolarni qo\'shishni tasdiqlaysizmi?`,
                 Markup.inlineKeyboard([
                     [Markup.button.callback('✅ Tasdiqlash', `confirm_period_${qazoPerPrayer}`)],
@@ -112,7 +112,7 @@ class QazoInputService {
             dhuhr: '☀️ Peshin',
             asr: '🌇 Asr',
             maghrib: '🌆 Shom',
-            isha: '🌙 Qufton'
+            isha: '🌙 Xufton'
         };
         
         const currentPrayer = prayers[state.step - 1];
