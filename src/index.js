@@ -780,9 +780,11 @@ class QazoBot {
                 // Pending eslatmalarni har doim tozalash
                 this.reminderService.pendingReminders.delete(pendingKey);
                 
-                // "Later" da pendingPrayerReminders ni tozalash
+                // "Later" da pendingPrayerReminders ni tozlamasligimiz kerak
+                // chunki har 10 daqiqada qayta eslatish kerak
                 if (action === 'later') {
-                    this.reminderService.pendingPrayerReminders.delete(pendingKey);
+                    // pendingPrayerReminders ni tozlamaymiz, qayta eslatish uchun
+                    // this.reminderService.pendingPrayerReminders.delete(pendingKey);
                 }
                 
                 if (action === 'read') {

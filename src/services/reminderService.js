@@ -13,6 +13,7 @@ class ReminderService {
         this.activeReminders = new Map();
         this.pendingReminders = new Map(); // Yangi: pending eslatmalarni saqlash
         this.pendingPrayerReminders = new Map(); // Pending prayer reminders uchun
+        this.missedReminders = new Map(); // Missed eslatmalar uchun
         this.checkInterval = null;
     }
 
@@ -149,6 +150,10 @@ class ReminderService {
                     console.log(`Sending missed reminder for ${prayer.name}`);
                     // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
                     await this.sendMissedPrayerReminder(user, prayer.name);
+                } else {
+                    // Vaqt o'tmagan bo'lsa, pending eslatma yuboramiz (har 10 daqiqada)
+                    console.log(`Sending pending reminder for ${prayer.name}`);
+                    await this.sendPendingPrayerReminder(user, prayer.name);
                 }
             }
         }
@@ -229,9 +234,9 @@ class ReminderService {
         const key = `${user.telegram_id}_${prayerName}`;
         
         // Avvalgi eslatmani o'chirish
-        if (this.pendingReminders.has(key)) {
+        if (this.missedReminders.has(key)) {
             try {
-                const messageId = this.pendingReminders.get(key);
+                const messageId = this.missedReminders.get(key);
                 await this.bot.telegram.deleteMessage(user.telegram_id, messageId);
                 console.log(`Deleted previous missed reminder for ${prayerName}`);
             } catch (error) {
@@ -251,7 +256,7 @@ class ReminderService {
         );
         
         // Yangi eslatma ID sini saqlash
-        this.pendingReminders.set(key, message.message_id);
+        this.missedReminders.set(key, message.message_id);
     }
 
     isPrayerTime(currentTime, prayerTime, toleranceMinutes = 2) {
@@ -330,6 +335,7 @@ class ReminderService {
         this.activeReminders.clear();
         this.pendingReminders.clear();
         this.pendingPrayerReminders.clear();
+        this.missedReminders.clear();
     }
 }
 
