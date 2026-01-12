@@ -71,6 +71,7 @@ class QazoBot {
             // Keyin pending eslatmalarni tekshiramiz
             const userTimezone = await this.userService.getUserTimezone(user.id);
             const currentTime = moment().tz(userTimezone || 'Asia/Tashkent').format('HH:mm');
+            console.log(`/start - currentTime: ${currentTime}, timezone: ${userTimezone || 'Asia/Tashkent'}`);
             
             // Faqat bugungi namozlar uchun eslatma yuboramiz
             const today = new Date().toISOString().split('T')[0];
@@ -86,8 +87,11 @@ class QazoBot {
                         const prayerTime = moment(times[prayer], 'HH:mm');
                         const current = moment(currentTime, 'HH:mm');
                         
+                        console.log(`/start - checking ${prayer}: prayerTime=${times[prayer]}, currentTime=${currentTime}, isAfter=${current.isAfter(prayerTime)}`);
+                        
                         // Agar namoz vaqti o'tgan bo'lsa eslatma yuboramiz
                         if (current.isAfter(prayerTime)) {
+                            console.log(`/start - sending missed reminder for ${prayer}`);
                             await this.reminderService.sendMissedPrayerReminder({ telegram_id: user.id }, prayer);
                         }
                     }

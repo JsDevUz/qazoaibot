@@ -108,26 +108,28 @@ class ReminderService {
         
         if (!times) return;
         
-        const prayers = [
-            { name: 'fajr', time: times.fajr },
-            { name: 'dhuhr', time: times.dhuhr },
-            { name: 'asr', time: times.asr },
-            { name: 'maghrib', time: times.maghrib },
-            { name: 'isha', time: times.isha }
-        ];
-        
         const current = moment(currentTime, 'HH:mm');
         
+        // Hozirgi vaqtdagi namozni topamiz
+        const currentPrayer = this.getCurrentPrayer(current, times);
+        
+        if (!currentPrayer) {
+            console.log(`No current prayer found for time ${currentTime}`);
+            return;
+        }
+        
+        const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+        
         for (const prayer of prayers) {
-            const prayerTime = moment(prayer.time, 'HH:mm');
-            const status = record[`${prayer.name}_status`];
+            const prayerTime = moment(times[prayer], 'HH:mm');
+            const status = record[`${prayer}_status`];
             
-            console.log(`Checking ${prayer.name}: current=${currentTime}, prayer=${prayer.time}, status=${status}`);
+            console.log(`Checking ${prayer}: current=${currentTime}, prayer=${times[prayer]}, status=${status}`);
             
             // Faqat pending statusdagi namozlarni tekshiramiz
             if (status === 'pending') {
-                const activeKey = `${user.telegram_id}_${prayer.name}_${today}`;
-                const pendingKey = `${user.telegram_id}_${prayer.name}`;
+                const activeKey = `${user.telegram_id}_${prayer}_${today}`;
+                const pendingKey = `${user.telegram_id}_${prayer}`;
                 
                 // Keyingi namoz vaqtini topamiz
                 const nextPrayerIndex = this.getNextPrayerIndex(prayer.name);
@@ -145,15 +147,17 @@ class ReminderService {
                     shouldSendReminder = current.isAfter(moment('23:59', 'HH:mm'));
                 }
                 
-                // Faqat vaqt o'tgan bo'lsa eslatma yuboramiz
-                if (shouldSendReminder) {
-                    console.log(`Sending missed reminder for ${prayer.name}`);
-                    // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
-                    await this.sendMissedPrayerReminder(user, prayer.name);
-                } else {
-                    // Vaqt o'tmagan bo'lsa, pending eslatma yuboramiz (har 10 daqiqada)
-                    console.log(`Sending pending reminder for ${prayer.name}`);
-                    await this.sendPendingPrayerReminder(user, prayer.name);
+                // Faqat hozirgi namoz yoki vaqti o'tgan namozlar uchun eslatma yuboramiz
+                if (prayer === currentPrayer || current.isAfter(prayerTime)) {
+                    if (shouldSendReminder) {
+                        console.log(`Sending missed reminder for ${prayer}`);
+                        // Namoz vaqti o'tib ketgan - missed eslatma yuboramiz
+                        await this.sendMissedPrayerReminder(user, prayer);
+                    } else {
+                        // Vaqt o'tmagan bo'lsa, pending eslatma yuboramiz (har 10 daqiqada)
+                        console.log(`Sending pending reminder for ${prayer}`);
+                        await this.sendPendingPrayerReminder(user, prayer);
+                    }
                 }
             }
         }
@@ -308,6 +312,28 @@ class ReminderService {
         const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
         const currentIndex = prayers.indexOf(prayerName);
         return currentIndex < prayers.length - 1 ? currentIndex + 1 : -1;
+    }
+
+    getCurrentPrayer(currentTime, times) {
+        const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+        
+        for (let i = 0; i < prayers.length; i++) {
+            const prayer = prayers[i];
+            const prayerTime = moment(times[prayer], 'HH:mm');
+            
+            // Keyingi namozni topamiz
+            const nextPrayerIndex = i < prayers.length - 1 ? i + 1 : 0;
+            const nextPrayer = prayers[nextPrayerIndex];
+            const nextPrayerTime = moment(times[nextPrayer], 'HH:mm');
+            
+            // Agar hozirgi vaqt bu namoz vaqti bilan keyingi namoz vaqti orasida bo'lsa
+            if (currentTime.isBetween(prayerTime, nextPrayerTime, null, '[)')) {
+                return prayer;
+            }
+        }
+        
+        // Agar hech qaysi oraliqda bo'lmasa, oxirgi namozni qaytaramiz
+        return 'isha';
     }
 
     async getPrayerTimes(userId, date) {
