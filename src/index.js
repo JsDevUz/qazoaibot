@@ -71,7 +71,6 @@ class QazoBot {
             // Keyin pending eslatmalarni tekshiramiz
             const userTimezone = await this.userService.getUserTimezone(user.id);
             const currentTime = moment().tz(userTimezone || 'Asia/Tashkent').format('HH:mm');
-            console.log(`/start - currentTime: ${currentTime}, timezone: ${userTimezone || 'Asia/Tashkent'}`);
             
             // Faqat bugungi namozlar uchun eslatma yuboramiz
             const today = new Date().toISOString().split('T')[0];
@@ -87,12 +86,77 @@ class QazoBot {
                         const prayerTime = moment(times[prayer], 'HH:mm');
                         const current = moment(currentTime, 'HH:mm');
                         
-                        console.log(`/start - checking ${prayer}: prayerTime=${times[prayer]}, currentTime=${currentTime}, isAfter=${current.isAfter(prayerTime)}`);
-                        
-                        // Agar namoz vaqti o'tgan bo'lsa eslatma yuboramiz
+                        // Vaqti o'tgan bo'lsa
                         if (current.isAfter(prayerTime)) {
-                            console.log(`/start - sending missed reminder for ${prayer}`);
-                            await this.reminderService.sendMissedPrayerReminder({ telegram_id: user.id }, prayer);
+                            // Hozirgi namozni topamiz
+                            const currentPrayer = this.reminderService.getCurrentPrayer(current, times);
+                            
+                            // Agar bu hozirgi namoz bo'lsa, pending eslatma yuboramiz
+                            if (prayer === currentPrayer) {
+                                // Avvalgi pending eslatmani o'chirish
+                                const pendingKey = `${user.id}_${prayer}`;
+                                if (this.reminderService.pendingReminders.has(pendingKey)) {
+                                    try {
+                                        const messageId = this.reminderService.pendingReminders.get(pendingKey);
+                                        await ctx.telegram.deleteMessage(user.id, messageId);
+                                        console.log(`Deleted previous pending reminder for ${prayer}`);
+                                    } catch (error) {
+                                        console.log('Could not delete previous pending reminder:', error.message);
+                                    }
+                                }
+                                // Avvalgi missed eslatmani o'chirish
+                                if (this.reminderService.missedReminders.has(pendingKey)) {
+                                    try {
+                                        const messageId = this.reminderService.missedReminders.get(pendingKey);
+                                        await ctx.telegram.deleteMessage(user.id, messageId);
+                                        console.log(`Deleted previous missed reminder for ${prayer}`);
+                                    } catch (error) {
+                                        console.log('Could not delete previous missed reminder:', error.message);
+                                    }
+                                }
+                                
+                                await this.reminderService.sendPendingPrayerReminder({ telegram_id: user.id }, prayer);
+                            } else {
+                                // O'tgan namozlar uchun keyingi namoz vaqtini tekshiramiz
+                                const nextPrayerIndex = this.reminderService.getNextPrayerIndex(prayer);
+                                const nextPrayer = this.reminderService.getPrayerByIndex(nextPrayerIndex);
+                                
+                                let shouldSendMissed = false;
+                                if (nextPrayer) {
+                                    const nextPrayerTime = moment(times[nextPrayer], 'HH:mm');
+                                    shouldSendMissed = current.isAfter(nextPrayerTime);
+                                } else {
+                                    // Isha dan keyin ertangi bomdodgacha
+                                    shouldSendMissed = current.isAfter(moment('23:59', 'HH:mm'));
+                                }
+                                
+                                // Avvalgi eslatmalarni o'chirish
+                                const pendingKey = `${user.id}_${prayer}`;
+                                if (this.reminderService.pendingReminders.has(pendingKey)) {
+                                    try {
+                                        const messageId = this.reminderService.pendingReminders.get(pendingKey);
+                                        await ctx.telegram.deleteMessage(user.id, messageId);
+                                        console.log(`Deleted previous pending reminder for ${prayer}`);
+                                    } catch (error) {
+                                        console.log('Could not delete previous pending reminder:', error.message);
+                                    }
+                                }
+                                if (this.reminderService.missedReminders.has(pendingKey)) {
+                                    try {
+                                        const messageId = this.reminderService.missedReminders.get(pendingKey);
+                                        await ctx.telegram.deleteMessage(user.id, messageId);
+                                        console.log(`Deleted previous missed reminder for ${prayer}`);
+                                    } catch (error) {
+                                        console.log('Could not delete previous missed reminder:', error.message);
+                                    }
+                                }
+                                
+                                if (shouldSendMissed) {
+                                    await this.reminderService.sendMissedPrayerReminder({ telegram_id: user.id }, prayer);
+                                } else {
+                                    await this.reminderService.sendPendingPrayerReminder({ telegram_id: user.id }, prayer);
+                                }
+                            }
                         }
                     }
                 }
