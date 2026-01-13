@@ -211,6 +211,37 @@ class QazoBot {
             await ctx.reply(`✅ Xabar muvaffaqiyatli ${result.successCount} ta userga yuborildi!`);
         });
 
+        this.bot.command('getdb', async (ctx) => {
+            if (!this.adminService.isAdmin(ctx.from.id)) {
+                await ctx.reply('❌ Sizda bu commandni ishlatish uchun ruxsat yo\'q!');
+                return;
+            }
+            
+            try {
+                // Database faylini adminga yuborish
+                const fs = require('fs');
+                const path = require('path');
+                const dbPath = path.join(__dirname, '../database/qazo_bot.db');
+                
+                // Fayl mavjudligini tekshirish
+                if (fs.existsSync(dbPath)) {
+                    await ctx.replyWithDocument(
+                        { source: dbPath },
+                        '📄 Database fayli (qazo_bot.db)',
+                        Markup.inlineKeyboard([
+                            [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
+                        ])
+                    );
+                    console.log(`Database file sent to admin ${ctx.from.id}`);
+                } else {
+                    await ctx.reply('❌ Database fayli topilmadi!');
+                }
+            } catch (error) {
+                console.error('Error sending database file:', error);
+                await ctx.reply('❌ Database faylini yuborishda xatolik yuz berdi!');
+            }
+        });
+
         this.bot.action('save_qazo_status', async (ctx) => {
             await ctx.reply('✅ Qazo holati saqlab qolindi!', Markup.inlineKeyboard([
                 [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
