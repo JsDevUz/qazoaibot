@@ -903,17 +903,40 @@ class QazoBot {
                 const [_, prayer, action] = data.split('_');
                 const today = new Date().toISOString().split('T')[0];
                 
-                // Eslatmalarni tozalash
+                // Eslatma xabarlarini tozalash
                 const pendingKey = `${userId}_${prayer}`;
                 const activeKey = `${userId}_${prayer}_${today}`;
+                
+                // Pending eslatma xabarini o'chirish
+                if (this.reminderService.pendingReminders.has(pendingKey)) {
+                    try {
+                        const messageId = this.reminderService.pendingReminders.get(pendingKey);
+                        await ctx.telegram.deleteMessage(userId, messageId);
+                        console.log(`Deleted pending reminder message for ${prayer}`);
+                    } catch (error) {
+                        console.log('Could not delete pending reminder message:', error.message);
+                    }
+                }
+                
+                // Missed eslatma xabarini o'chirish
+                if (this.reminderService.missedReminders.has(pendingKey)) {
+                    try {
+                        const messageId = this.reminderService.missedReminders.get(pendingKey);
+                        await ctx.telegram.deleteMessage(userId, messageId);
+                        console.log(`Deleted missed reminder message for ${prayer}`);
+                    } catch (error) {
+                        console.log('Could not delete missed reminder message:', error.message);
+                    }
+                }
                 
                 // Faqat read va missed da activeReminders ni tozalash
                 if (action === 'read' || action === 'missed') {
                     this.reminderService.activeReminders.delete(activeKey);
                 }
                 
-                // Pending eslatmalarni har doim tozalash
+                // Map lardan kalitlarni o'chirish
                 this.reminderService.pendingReminders.delete(pendingKey);
+                this.reminderService.missedReminders.delete(pendingKey);
                 
                 // "Later" da pendingPrayerReminders ni tozlamasligimiz kerak
                 // chunki har 10 daqiqada qayta eslatish kerak
