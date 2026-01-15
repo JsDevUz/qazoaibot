@@ -947,13 +947,31 @@ class QazoBot {
                 
                 if (action === 'read') {
                     await this.prayerService.updatePrayerStatus(userId, today, prayer, 'read');
-                    await ctx.editMessageText(`✅ ${prayer} namozi o'qilgan deb belgilandi!`);
+                    try {
+                        await ctx.editMessageText(`✅ ${prayer} namozi o'qilgan deb belgilandi!`);
+                    } catch (error) {
+                        console.log('Could not edit message:', error.message);
+                        // Xabar o'chirilgan bo'lsa, yangi xabar yuboramiz
+                        await ctx.reply(`✅ ${prayer} namozi o'qilgan deb belgilandi!`);
+                    }
                 } else if (action === 'missed') {
                     await this.prayerService.updatePrayerStatus(userId, today, prayer, 'missed');
                     await this.qazoService.addQazo(userId, prayer);
-                    await ctx.editMessageText(`❌ ${prayer} namozi qazo qilindi!`);
+                    try {
+                        await ctx.editMessageText(`❌ ${prayer} namozi qazo qilindi!`);
+                    } catch (error) {
+                        console.log('Could not edit message:', error.message);
+                        // Xabar o'chirilgan bo'lsa, yangi xabar yuboramiz
+                        await ctx.reply(`❌ ${prayer} namozi qazo qilindi!`);
+                    }
                 } else if (action === 'later') {
-                    await ctx.editMessageText(`⏰ ${prayer} namozi uchun eslatma qayta yuboriladi.`);
+                    try {
+                        await ctx.editMessageText(`⏰ ${prayer} namozi uchun eslatma qayta yuboriladi.`);
+                    } catch (error) {
+                        console.log('Could not edit message:', error.message);
+                        // Xabar o'chirilgan bo'lsa, yangi xabar yuboramiz
+                        await ctx.reply(`⏰ ${prayer} namozi uchun eslatma qayta yuboriladi.`);
+                    }
                 }
                 
                 await ctx.answerCbQuery();
@@ -1273,6 +1291,27 @@ class QazoBot {
 
     async start() {
         await this.initialize();
+        
+        // Global error handling
+        this.bot.catch((err, ctx) => {
+            console.error('Bot error occurred:', {
+                error: err.message,
+                stack: err.stack,
+                update: ctx.update
+            });
+        });
+        
+        // Unhandled promise rejection handling
+        process.on('unhandledRejection', (reason, promise) => {
+            console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+        });
+        
+        // Uncaught exception handling
+        process.on('uncaughtException', (error) => {
+            console.error('Uncaught Exception:', error);
+            // Botni to'xtatmaymiz, log qilib qo'yamiz
+        });
+        
         this.bot.launch();
         console.log('Qazo AI bot is running...');
     }
