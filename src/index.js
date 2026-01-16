@@ -929,6 +929,17 @@ class QazoBot {
                     }
                 }
                 
+                // Asosiy namoz vaqti eslatmasini o'chirish
+                if (this.reminderService.prayerTimeReminders.has(activeKey)) {
+                    try {
+                        const messageId = this.reminderService.prayerTimeReminders.get(activeKey);
+                        await ctx.telegram.deleteMessage(userId, messageId);
+                        console.log(`Deleted prayer time reminder message for ${prayer}`);
+                    } catch (error) {
+                        console.log('Could not delete prayer time reminder message:', error.message);
+                    }
+                }
+                
                 // Faqat read va missed da activeReminders ni tozalash
                 if (action === 'read' || action === 'missed') {
                     this.reminderService.activeReminders.delete(activeKey);
@@ -937,6 +948,7 @@ class QazoBot {
                 // Map lardan kalitlarni o'chirish
                 this.reminderService.pendingReminders.delete(pendingKey);
                 this.reminderService.missedReminders.delete(pendingKey);
+                this.reminderService.prayerTimeReminders.delete(activeKey);
                 
                 // "Later" da pendingPrayerReminders ni tozlamasligimiz kerak
                 // chunki har 10 daqiqada qayta eslatish kerak

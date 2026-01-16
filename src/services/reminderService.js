@@ -14,6 +14,7 @@ class ReminderService {
         this.pendingReminders = new Map(); // Yangi: pending eslatmalarni saqlash
         this.pendingPrayerReminders = new Map(); // Pending prayer reminders uchun
         this.missedReminders = new Map(); // Missed eslatmalar uchun
+        this.prayerTimeReminders = new Map(); // Asosiy namoz vaqti eslatmalari uchun
         this.checkInterval = null;
     }
 
@@ -178,7 +179,7 @@ class ReminderService {
                 isha: '🌙 Xufton'
             };
             
-            await this.bot.telegram.sendMessage(
+            const message = await this.bot.telegram.sendMessage(
                 user.telegram_id,
                 `⏰ ${prayerNames[prayer.name]} vaqti kirdi!\n\n` +
                 `Namozni o'qiganingizni belgilang:`,
@@ -187,6 +188,10 @@ class ReminderService {
                     [Markup.button.callback('⏰ Keyinroq', `prayer_${prayer.name}_later`)]
                 ])
             );
+            
+            // Xabar ID sini saqlash
+            const key = `${user.telegram_id}_${prayer.name}_${today}`;
+            this.prayerTimeReminders.set(key, message.message_id);
         }
     }
 
@@ -200,6 +205,20 @@ class ReminderService {
         };
         
         const key = `${user.telegram_id}_${prayerName}`;
+        const today = new Date().toISOString().split('T')[0];
+        const prayerTimeKey = `${user.telegram_id}_${prayerName}_${today}`;
+        
+        // Asosiy namoz vaqti eslatmasini o'chirish
+        if (this.prayerTimeReminders.has(prayerTimeKey)) {
+            try {
+                const messageId = this.prayerTimeReminders.get(prayerTimeKey);
+                await this.bot.telegram.deleteMessage(user.telegram_id, messageId);
+                console.log(`Deleted prayer time reminder for ${prayerName}`);
+                this.prayerTimeReminders.delete(prayerTimeKey);
+            } catch (error) {
+                console.log('Could not delete prayer time reminder:', error.message);
+            }
+        }
         
         // Avvalgi eslatmani o'chirish
         if (this.pendingReminders.has(key)) {
@@ -237,6 +256,20 @@ class ReminderService {
         };
         
         const key = `${user.telegram_id}_${prayerName}`;
+        const today = new Date().toISOString().split('T')[0];
+        const prayerTimeKey = `${user.telegram_id}_${prayerName}_${today}`;
+        
+        // Asosiy namoz vaqti eslatmasini o'chirish
+        if (this.prayerTimeReminders.has(prayerTimeKey)) {
+            try {
+                const messageId = this.prayerTimeReminders.get(prayerTimeKey);
+                await this.bot.telegram.deleteMessage(user.telegram_id, messageId);
+                console.log(`Deleted prayer time reminder for ${prayerName}`);
+                this.prayerTimeReminders.delete(prayerTimeKey);
+            } catch (error) {
+                console.log('Could not delete prayer time reminder:', error.message);
+            }
+        }
         
         // Avvalgi eslatmani o'chirish
         if (this.missedReminders.has(key)) {
@@ -363,6 +396,7 @@ class ReminderService {
         this.pendingReminders.clear();
         this.pendingPrayerReminders.clear();
         this.missedReminders.clear();
+        this.prayerTimeReminders.clear();
     }
 }
 
