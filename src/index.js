@@ -204,6 +204,7 @@ class QazoBot {
                     await ctx.telegram.deleteMessage(user.id, messageId);
                     console.log(`Deleted previous missed reminder for ${prayer}`);
                   } catch (error) {
+                    // 
                     console.log('Could not delete previous missed reminder:', error.message);
                   }
                 }
