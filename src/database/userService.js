@@ -1,18 +1,22 @@
-const Database = require("./database");
+const User = require("../models/User");
 
 class UserService {
-  constructor(db) {
-    this.db = db;
-  }
+  // Constructor no longer needs db instance passed down if we're using Mongoose globally
+  constructor() {}
 
   async createUser(telegramId, username, firstName) {
-    const query = `
-            INSERT OR REPLACE INTO users (telegram_id, username, first_name, created_at, last_activity_update_at, is_blocked)
-            VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
-        `;
     try {
-      await this.db.run(query, [telegramId, username, firstName]);
-      return await this.getUser(telegramId);
+      const user = await User.findOneAndUpdate(
+        { telegram_id: telegramId },
+        {
+          username,
+          first_name: firstName,
+          is_blocked: false,
+          last_activity_update_at: new Date(),
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+      return user;
     } catch (error) {
       console.error("Error creating user:", error);
       throw error;
@@ -20,9 +24,8 @@ class UserService {
   }
 
   async getUser(telegramId) {
-    const query = "SELECT * FROM users WHERE telegram_id = ?";
     try {
-      return await this.db.get(query, [telegramId]);
+      return await User.findOne({ telegram_id: telegramId });
     } catch (error) {
       console.error("Error getting user:", error);
       throw error;
@@ -30,14 +33,12 @@ class UserService {
   }
 
   async updateUserTimezone(telegramId, timezone, city, country) {
-    const query = `
-            UPDATE users 
-            SET timezone = ?, city = ?, country = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE telegram_id = ?
-        `;
     try {
-      await this.db.run(query, [timezone, city, country, telegramId]);
-      return await this.getUser(telegramId);
+      return await User.findOneAndUpdate(
+        { telegram_id: telegramId },
+        { timezone, city, country },
+        { new: true },
+      );
     } catch (error) {
       console.error("Error updating user timezone:", error);
       throw error;
@@ -45,24 +46,12 @@ class UserService {
   }
 
   async updateUserLocation(telegramId, city, timezone, country) {
-    const query = `
-            UPDATE users 
-            SET timezone = ?, city = ?, country = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE telegram_id = ?
-        `;
-    try {
-      await this.db.run(query, [timezone, city, country, telegramId]);
-      return await this.getUser(telegramId);
-    } catch (error) {
-      console.error("Error updating user location:", error);
-      throw error;
-    }
+    return this.updateUserTimezone(telegramId, timezone, city, country);
   }
 
   async getAllUsers() {
-    const query = "SELECT * FROM users";
     try {
-      return await this.db.all(query);
+      return await User.find({});
     } catch (error) {
       console.error("Error getting all users:", error);
       return [];
@@ -80,26 +69,19 @@ class UserService {
   }
 
   async updateLastActivity(telegramId) {
-    const query = `
-            UPDATE users 
-            SET last_activity_update_at = CURRENT_TIMESTAMP
-            WHERE telegram_id = ?
-        `;
     try {
-      await this.db.run(query, [telegramId]);
+      await User.updateOne(
+        { telegram_id: telegramId },
+        { last_activity_update_at: new Date() },
+      );
     } catch (error) {
       console.error("Error updating last activity:", error);
     }
   }
 
   async blockUser(telegramId, blockReason = "No activity for 2 days") {
-    const query = `
-            UPDATE users 
-            SET is_blocked = 1, updated_at = CURRENT_TIMESTAMP
-            WHERE telegram_id = ?
-        `;
     try {
-      await this.db.run(query, [telegramId]);
+      await User.updateOne({ telegram_id: telegramId }, { is_blocked: true });
       console.log(`User ${telegramId} blocked: ${blockReason}`);
     } catch (error) {
       console.error("Error blocking user:", error);
@@ -107,13 +89,11 @@ class UserService {
   }
 
   async unblockUser(telegramId) {
-    const query = `
-            UPDATE users 
-            SET is_blocked = 0, last_activity_update_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-            WHERE telegram_id = ?
-        `;
     try {
-      await this.db.run(query, [telegramId]);
+      await User.updateOne(
+        { telegram_id: telegramId },
+        { is_blocked: false, last_activity_update_at: new Date() },
+      );
       console.log(`User ${telegramId} unblocked`);
     } catch (error) {
       console.error("Error unblocking user:", error);
@@ -123,7 +103,7 @@ class UserService {
   async isUserBlocked(telegramId) {
     try {
       const user = await this.getUser(telegramId);
-      return user ? user.is_blocked === 1 : false;
+      return user ? user.is_blocked : false;
     } catch (error) {
       console.error("Error checking if user is blocked:", error);
       return false;
@@ -131,13 +111,14 @@ class UserService {
   }
 
   async getInactiveUsers(hoursThreshold = 48) {
-    const query = `
-            SELECT * FROM users 
-            WHERE datetime('now', '-' || ? || ' hours') > last_activity_update_at
-            AND is_blocked = 0
-        `;
     try {
-      return await this.db.all(query, [hoursThreshold]);
+      const thresholdDate = new Date(
+        Date.now() - hoursThreshold * 60 * 60 * 1000,
+      );
+      return await User.find({
+        last_activity_update_at: { $lt: thresholdDate },
+        is_blocked: false,
+      });
     } catch (error) {
       console.error("Error getting inactive users:", error);
       return [];

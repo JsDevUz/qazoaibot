@@ -8,19 +8,26 @@
     "dev": "nodemon src/index.js",
     "test": "jest"
   },
-  "keywords": ["telegram", "bot", "prayer", "qazo", "islam", "reminder"],
+  "keywords": [
+    "telegram",
+    "bot",
+    "prayer",
+    "qazo",
+    "islam",
+    "reminder"
+  ],
   "author": "Qazo AI Bot",
   "license": "MIT",
   "dependencies": {
-    "telegraf": "^4.15.1",
-    "sqlite3": "^5.1.6",
-    "node-cron": "^3.0.3",
     "adhan": "^4.4.3",
+    "dotenv": "^16.3.1",
     "moment-timezone": "^0.5.43",
-    "dotenv": "^16.3.1"
+    "mongoose": "^9.2.2",
+    "node-cron": "^3.0.3",
+    "telegraf": "^4.15.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1"
   }
 }

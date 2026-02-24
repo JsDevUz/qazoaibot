@@ -30,10 +30,15 @@ class QazoBot {
   // TEST MODE: .env da TEST_TIME=HH:mm deb yozsa, test vaqti boshlaydi va davom etib vaqt o'tadi
   initializeTestMode() {
     if (process.env.TEST_TIME) {
-      const [testHour, testMinute] = process.env.TEST_TIME.split(":").map(Number);
-      const testMoment = moment().tz("Asia/Tashkent").hour(testHour).minute(testMinute).second(0);
+      const [testHour, testMinute] =
+        process.env.TEST_TIME.split(":").map(Number);
+      const testMoment = moment()
+        .tz("Asia/Tashkent")
+        .hour(testHour)
+        .minute(testMinute)
+        .second(0);
       const now = moment().tz("Asia/Tashkent");
-      
+
       this.testTimeOffset = testMoment.diff(now, "milliseconds");
       console.log(`🧪 TEST MODE: Boshlang'ich vaqt = ${process.env.TEST_TIME}`);
       console.log(`🧪 Vaqt offset = ${this.testTimeOffset}ms`);
@@ -43,26 +48,25 @@ class QazoBot {
   // Hozirgi vaqtni olish (TEST_TIME offset bilan yoki real vaqt)
   getCurrentTime(timezone = "Asia/Tashkent", format = "HH:mm") {
     let currentMoment = moment().tz(timezone);
-    
+
     if (this.testTimeOffset !== null) {
       // Test rejimida: hozirgi vaqtga offset qo'shamiz
       currentMoment = currentMoment.add(this.testTimeOffset, "milliseconds");
     }
-    
+
     return currentMoment.format(format);
   }
 
   async initialize() {
     await this.db.connect();
-    this.userService = new UserService(this.db);
-    this.prayerService = new PrayerService(this.db);
-    this.qazoService = new QazoService(this.db);
-    this.prayerTimesService = new PrayerTimesService(this.db);
+    this.userService = new UserService();
+    this.prayerService = new PrayerService();
+    this.qazoService = new QazoService();
+    this.prayerTimesService = new PrayerTimesService();
     this.reminderService = new ReminderService(
       this.bot,
       this.prayerService,
       this.qazoService,
-      this.db,
       this.userService,
       this.prayerTimesService,
     );
@@ -76,7 +80,6 @@ class QazoBot {
       this.bot,
       this.qazoService,
       this.userService,
-      this.db,
     );
     this.adminService = new AdminService(this.bot, this.userService);
 
@@ -94,125 +97,175 @@ class QazoBot {
 
       if (!existingUser) {
         // Yangi user - saqlaymiz va admin xabari yuboramiz
-        const newUser = await this.userService.createUser(user.id, user.username, user.first_name);
+        const newUser = await this.userService.createUser(
+          user.id,
+          user.username,
+          user.first_name,
+        );
         await this.adminService.sendNewUserNotification(newUser);
       } else {
         // Mavjud user - blokni olib tashlaymiz va aktivligini yangilaymiz
         await this.userService.unblockUser(user.id);
       }
-      
+
       // Avval start javobini yuboramiz
       await ctx.reply(
-        '🕌 Assalomu alaykum! Qazo AI botiga xush kelibsiz!\n\n' +
-        'Bu bot sizning namozlaringizni kuzatib boradi va qazo qilgan namozlaringizni hisoblaydi.\n\n' +
-        '📝 Bot quyidagi funksiyalarni bajaradi:\n' +
-        '• Namoz vaqtlarini eslatish\n' +
-        '• Namoz o\'qilganini kuzatish\n' +
-        '• Qazo namozlarni hisoblash\n' +
-        '• Har 10 daqiqada so\'rab borish\n' +
-        '• Eski qazolarni kiritish\n\n' +
-        'Quyidagi tugmalardan foydalaning:',
+        "🕌 Assalomu alaykum! Qazo AI botiga xush kelibsiz!\n\n" +
+          "Bu bot sizning namozlaringizni kuzatib boradi va qazo qilgan namozlaringizni hisoblaydi.\n\n" +
+          "📝 Bot quyidagi funksiyalarni bajaradi:\n" +
+          "• Namoz vaqtlarini eslatish\n" +
+          "• Namoz o'qilganini kuzatish\n" +
+          "• Qazo namozlarni hisoblash\n" +
+          "• Har 10 daqiqada so'rab borish\n" +
+          "• Eski qazolarni kiritish\n\n" +
+          "Quyidagi tugmalardan foydalaning:",
         Markup.inlineKeyboard([
-          [Markup.button.callback('📊 Qazo holati', 'menu_qazo')],
-          [Markup.button.callback('📅 Bugungi namozlar', 'menu_today')],
-          [Markup.button.callback('🕐 Namoz vaqtlari', 'menu_times')],
-          [Markup.button.callback('📝 Qazolarni yangilash', 'menu_addqazo')],
-          [Markup.button.callback('⚙️ Sozlamalar', 'menu_settings')],
-          [Markup.button.callback('❓ Yordam', 'menu_help')]
-        ])
+          [Markup.button.callback("📊 Qazo holati", "menu_qazo")],
+          [Markup.button.callback("📅 Bugungi namozlar", "menu_today")],
+          [Markup.button.callback("🕐 Namoz vaqtlari", "menu_times")],
+          [Markup.button.callback("📝 Qazolarni yangilash", "menu_addqazo")],
+          [Markup.button.callback("⚙️ Sozlamalar", "menu_settings")],
+          [Markup.button.callback("❓ Yordam", "menu_help")],
+        ]),
       );
-      
+
       // Update user activity
       await this.userService.updateLastActivity(user.id);
-      
+
       // Keyin pending eslatmalarni tekshiramiz
       const userTimezone = await this.userService.getUserTimezone(user.id);
-      const currentTime = moment().tz(userTimezone || 'Asia/Tashkent').format('HH:mm');
-      
+      const currentTime = moment()
+        .tz(userTimezone || "Asia/Tashkent")
+        .format("HH:mm");
+
       // Faqat bugungi namozlar uchun eslatma yuboramiz
-      const today = new Date().toISOString().split('T')[0];
-      const todayRecord = await this.prayerService.getOrCreatePrayerRecord(user.id, today);
-      
+      const today = new Date().toISOString().split("T")[0];
+      const todayRecord = await this.prayerService.getOrCreatePrayerRecord(
+        user.id,
+        today,
+      );
+
       // Bugungi pending namozlarni tekshiramiz
-      const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+      const prayers = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
       for (const prayer of prayers) {
         const status = todayRecord[`${prayer}_status`];
-        if (status === 'pending') {
-          const times = await this.reminderService.getPrayerTimes(user.id, today);
+        if (status === "pending") {
+          const times = await this.reminderService.getPrayerTimes(
+            user.id,
+            today,
+          );
           if (times) {
-            const prayerTime = moment(times[prayer], 'HH:mm');
-            const current = moment(currentTime, 'HH:mm');
-            
+            const prayerTime = moment(times[prayer], "HH:mm");
+            const current = moment(currentTime, "HH:mm");
+
             // Vaqti o'tgan bo'lsa
             if (current.isAfter(prayerTime)) {
               // Hozirgi namozni topamiz
-              const currentPrayer = this.reminderService.getCurrentPrayer(current, times);
-              
+              const currentPrayer = this.reminderService.getCurrentPrayer(
+                current,
+                times,
+              );
+
               // Agar bu hozirgi namoz bo'lsa, pending eslatma yuboramiz
               if (prayer === currentPrayer) {
                 // Avvalgi pending eslatmani o'chirish
                 const pendingKey = `${user.id}_${prayer}`;
                 if (this.reminderService.pendingReminders.has(pendingKey)) {
                   try {
-                    const messageId = this.reminderService.pendingReminders.get(pendingKey);
+                    const messageId =
+                      this.reminderService.pendingReminders.get(pendingKey);
                     await ctx.telegram.deleteMessage(user.id, messageId);
-                    console.log(`Deleted previous pending reminder for ${prayer}`);
+                    console.log(
+                      `Deleted previous pending reminder for ${prayer}`,
+                    );
                   } catch (error) {
-                    console.log('Could not delete previous pending reminder:', error.message);
+                    console.log(
+                      "Could not delete previous pending reminder:",
+                      error.message,
+                    );
                   }
                 }
                 // Avvalgi missed eslatmani o'chirish
                 if (this.reminderService.missedReminders.has(pendingKey)) {
                   try {
-                    const messageId = this.reminderService.missedReminders.get(pendingKey);
+                    const messageId =
+                      this.reminderService.missedReminders.get(pendingKey);
                     await ctx.telegram.deleteMessage(user.id, messageId);
-                    console.log(`Deleted previous missed reminder for ${prayer}`);
+                    console.log(
+                      `Deleted previous missed reminder for ${prayer}`,
+                    );
                   } catch (error) {
-                    console.log('Could not delete previous missed reminder:', error.message);
+                    console.log(
+                      "Could not delete previous missed reminder:",
+                      error.message,
+                    );
                   }
                 }
-                
-                await this.reminderService.sendPendingPrayerReminder({ telegram_id: user.id }, prayer);
+
+                await this.reminderService.sendPendingPrayerReminder(
+                  { telegram_id: user.id },
+                  prayer,
+                );
               } else {
                 // O'tgan namozlar uchun keyingi namoz vaqtini tekshiramiz
-                const nextPrayerIndex = this.reminderService.getNextPrayerIndex(prayer);
-                const nextPrayer = this.reminderService.getPrayerByIndex(nextPrayerIndex);
-                
+                const nextPrayerIndex =
+                  this.reminderService.getNextPrayerIndex(prayer);
+                const nextPrayer =
+                  this.reminderService.getPrayerByIndex(nextPrayerIndex);
+
                 let shouldSendMissed = false;
                 if (nextPrayer) {
-                  const nextPrayerTime = moment(times[nextPrayer], 'HH:mm');
+                  const nextPrayerTime = moment(times[nextPrayer], "HH:mm");
                   shouldSendMissed = current.isAfter(nextPrayerTime);
                 } else {
                   // Isha dan keyin 23:40 gacha
-                  shouldSendMissed = current.isAfter(moment('23:40', 'HH:mm'));
+                  shouldSendMissed = current.isAfter(moment("23:40", "HH:mm"));
                 }
-                
+
                 // Avvalgi eslatmalarni o'chirish
                 const pendingKey = `${user.id}_${prayer}`;
                 if (this.reminderService.pendingReminders.has(pendingKey)) {
                   try {
-                    const messageId = this.reminderService.pendingReminders.get(pendingKey);
+                    const messageId =
+                      this.reminderService.pendingReminders.get(pendingKey);
                     await ctx.telegram.deleteMessage(user.id, messageId);
-                    console.log(`Deleted previous pending reminder for ${prayer}`);
+                    console.log(
+                      `Deleted previous pending reminder for ${prayer}`,
+                    );
                   } catch (error) {
-                    console.log('Could not delete previous pending reminder:', error.message);
+                    console.log(
+                      "Could not delete previous pending reminder:",
+                      error.message,
+                    );
                   }
                 }
                 if (this.reminderService.missedReminders.has(pendingKey)) {
                   try {
-                    const messageId = this.reminderService.missedReminders.get(pendingKey);
+                    const messageId =
+                      this.reminderService.missedReminders.get(pendingKey);
                     await ctx.telegram.deleteMessage(user.id, messageId);
-                    console.log(`Deleted previous missed reminder for ${prayer}`);
+                    console.log(
+                      `Deleted previous missed reminder for ${prayer}`,
+                    );
                   } catch (error) {
-                    // 
-                    console.log('Could not delete previous missed reminder:', error.message);
+                    //
+                    console.log(
+                      "Could not delete previous missed reminder:",
+                      error.message,
+                    );
                   }
                 }
-                
+
                 if (shouldSendMissed) {
-                  await this.reminderService.sendMissedPrayerReminder({ telegram_id: user.id }, prayer);
+                  await this.reminderService.sendMissedPrayerReminder(
+                    { telegram_id: user.id },
+                    prayer,
+                  );
                 } else {
-                  await this.reminderService.sendPendingPrayerReminder({ telegram_id: user.id }, prayer);
+                  await this.reminderService.sendPendingPrayerReminder(
+                    { telegram_id: user.id },
+                    prayer,
+                  );
                 }
               }
             }
@@ -307,26 +360,26 @@ class QazoBot {
 
     this.bot.action("menu_main", async (ctx) => {
       const userId = ctx.from.id;
-      
+
       // Check if user is blocked
       const isBlocked = await this.userService.isUserBlocked(userId);
       if (isBlocked) {
         await ctx.editMessageText(
-          '⚠️ Sizning hisobingiz bloklangan.\n\n' +
-          '🔄 Qayta ishga tushirish uchun /start ni bosing.',
+          "⚠️ Sizning hisobingiz bloklangan.\n\n" +
+            "🔄 Qayta ishga tushirish uchun /start ni bosing.",
           Markup.inlineKeyboard([
-            [Markup.button.callback('🔄 Qayta start', 'menu_main')]
-          ])
+            [Markup.button.callback("🔄 Qayta start", "menu_main")],
+          ]),
         );
         await ctx.answerCbQuery();
         return;
       }
-      
+
       // Unblock user if they click main menu while blocked
       if (isBlocked) {
         await this.userService.unblockUser(userId);
       }
-      
+
       // Update user activity
       await this.userService.updateLastActivity(userId);
 
@@ -595,7 +648,10 @@ class QazoBot {
         isha: "🌙 Xufton",
       };
 
-      const currentTime = this.getCurrentTime(user.timezone || "Asia/Tashkent", "HH:mm:ss");
+      const currentTime = this.getCurrentTime(
+        user.timezone || "Asia/Tashkent",
+        "HH:mm:ss",
+      );
 
       let message = `🕌 ${user.city || "Toshkent"} uchun bugungi namoz vaqtlari\n\n`;
       message += `📅 ${today}\n`;
@@ -642,53 +698,56 @@ class QazoBot {
     // Menu callback handlers
     this.bot.action("menu_qazo", async (ctx) => {
       const userId = ctx.from.id;
-      
+
       // Check if user is blocked
       const isBlocked = await this.userService.isUserBlocked(userId);
       if (isBlocked) {
         await ctx.editMessageText(
-          '⚠️ Sizning hisobingiz bloklangan.\n\n' +
-          '🔄 Qayta ishga tushirish uchun /start ni bosing.',
+          "⚠️ Sizning hisobingiz bloklangan.\n\n" +
+            "🔄 Qayta ishga tushirish uchun /start ni bosing.",
           Markup.inlineKeyboard([
-            [Markup.button.callback('🔄 Qayta start', 'menu_main')]
-          ])
+            [Markup.button.callback("🔄 Qayta start", "menu_main")],
+          ]),
         );
         await ctx.answerCbQuery();
         return;
       }
-      
+
       // Update user activity
       await this.userService.updateLastActivity(userId);
-      
+
       const qazoSummary = await this.qazoService.getQazoSummary(userId);
       const user = await this.userService.getUser(userId);
-      const currentTime = new Date().toLocaleString('uz-UZ', { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit',
+      const currentTime = new Date().toLocaleString("uz-UZ", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
         hour12: false,
-        timeZone: user.timezone || 'Asia/Tashkent'
+        timeZone: user.timezone || "Asia/Tashkent",
       });
-      
+
       const prayerNames = {
-        fajr: '🌅 Bomdod',
-        dhuhr: '☀️ Peshin',
-        asr: '🌇 Asr',
-        maghrib: '🌆 Shom',
-        isha: '🌙 Xufton'
+        fajr: "🌅 Bomdod",
+        dhuhr: "☀️ Peshin",
+        asr: "🌇 Asr",
+        maghrib: "🌆 Shom",
+        isha: "🌙 Xufton",
       };
-      
-      let message = '📊 Sizning qazo holatingiz:\n\n';
+
+      let message = "📊 Sizning qazo holatingiz:\n\n";
       message += `🔢 Jami qazo: ${qazoSummary.total}\n`;
       message += `🕐 Vaqt: ${currentTime}\n\n`;
-      
+
       for (const [prayer, count] of Object.entries(qazoSummary.details)) {
         message += `${prayerNames[prayer]}: ${count} ta\n`;
       }
-      
-      await ctx.editMessageText(message, Markup.inlineKeyboard([
-        [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
-      ]));
+
+      await ctx.editMessageText(
+        message,
+        Markup.inlineKeyboard([
+          [Markup.button.callback("🏠 Bosh menu", "menu_main")],
+        ]),
+      );
 
       await ctx.answerCbQuery();
     });
@@ -756,7 +815,10 @@ class QazoBot {
         isha: "🌙 Xufton",
       };
 
-      const currentTime = this.getCurrentTime(user.timezone || "Asia/Tashkent", "HH:mm:ss");
+      const currentTime = this.getCurrentTime(
+        user.timezone || "Asia/Tashkent",
+        "HH:mm:ss",
+      );
 
       let message = `🕌 ${user.city || "Toshkent"} uchun bugungi namoz vaqtlari\n\n`;
       message += `📅 ${today}\n`;
@@ -1675,7 +1737,7 @@ class QazoBot {
   async start() {
     // TEST MODE initialize qilish
     this.initializeTestMode();
-    
+
     await this.initialize();
 
     // Global error handling

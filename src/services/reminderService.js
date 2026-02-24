@@ -7,14 +7,12 @@ class ReminderService {
     bot,
     prayerService,
     qazoService,
-    db,
     userService,
     prayerTimesService,
   ) {
     this.bot = bot;
     this.prayerService = prayerService;
     this.qazoService = qazoService;
-    this.db = db;
     this.userService = userService;
     this.prayerTimesService = prayerTimesService;
     this.activeReminders = new Map();
@@ -336,7 +334,10 @@ class ReminderService {
         await this.bot.telegram.deleteMessage(user.telegram_id, messageId);
         console.log(`Deleted previous missed reminder for ${prayerName}`);
       } catch (error) {
-        console.log("Could not delete previous missed reminder:", error.message);
+        console.log(
+          "Could not delete previous missed reminder:",
+          error.message,
+        );
       }
     }
 
@@ -451,62 +452,9 @@ class ReminderService {
   }
 
   async getAllUsers() {
-    const query = "SELECT * FROM users";
+    const User = require("../models/User");
     try {
-      return await this.db.all(query);
-    } catch (error) {
-      console.error("Error getting users:", error);
-      return [];
-    }
-  }
-
-  async handleEndOfDayAutoQazo() {
-    console.log('Handling end of day auto qazo...');
-    try {
-      const users = await this.getAllUsers();
-      
-      for (const user of users) {
-        if (user.is_blocked) continue;
-
-        const today = new Date().toISOString().split("T")[0];
-        const record = await this.prayerService.getOrCreatePrayerRecord(
-          user.telegram_id,
-          today,
-        );
-
-        // Pending namozlarni qazo qiling
-        const prayers = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
-        let autoQazoPrayers = [];
-
-        for (const prayer of prayers) {
-          const status = record[`${prayer}_status`];
-          if (status === "pending") {
-            // Mark as missed (qazo)
-            await this.prayerService.updatePrayerStatus(
-              user.telegram_id,
-              today,
-              prayer,
-              "missed",
-            );
-            await this.qazoService.addQazo(user.telegram_id, prayer);
-            autoQazoPrayers.push(prayer);
-          }
-        }
-
-        // Send final qazo status
-        if (autoQazoPrayers.length > 0) {
-          await this.sendEndOfDayQazoStatus(user, today);
-        }
-      }
-    } catch (error) {
-      console.error("Error in handleEndOfDayAutoQazo:", error);
-    }
-  }
-
-  async getAllUsers() {
-    const query = "SELECT * FROM users";
-    try {
-      return await this.db.all(query);
+      return await User.find({});
     } catch (error) {
       console.error("Error getting users:", error);
       return [];
@@ -515,7 +463,9 @@ class ReminderService {
 
   async sendEndOfDayQazoStatus(user, date) {
     try {
-      const qazoSummary = await this.qazoService.getQazoSummary(user.telegram_id);
+      const qazoSummary = await this.qazoService.getQazoSummary(
+        user.telegram_id,
+      );
       const prayerNames = {
         fajr: "🌅 Bomdod",
         dhuhr: "☀️ Peshin",
@@ -523,27 +473,27 @@ class ReminderService {
         maghrib: "🌆 Shom",
         isha: "🌙 Xufton",
       };
-      
-      let message = '📊 Kun oxirida qazo holati:\n\n';
+
+      let message = "📊 Kun oxirida qazo holati:\n\n";
       message += `🔢 Jami qazo: ${qazoSummary.total}\n\n`;
-      
+
       for (const [prayer, count] of Object.entries(qazoSummary.details)) {
         message += `${prayerNames[prayer]}: ${count} ta\n`;
       }
 
       // Send without buttons
       await this.bot.telegram.sendMessage(user.telegram_id, message);
-      
+
       // Keyin saqlandi xabari bilan main menu tugmasi
       await this.bot.telegram.sendMessage(
         user.telegram_id,
-        '✅ Qazo holati saqlandi!',
+        "✅ Qazo holati saqlandi!",
         Markup.inlineKeyboard([
-          [Markup.button.callback('🏠 Bosh menu', 'menu_main')]
-        ])
+          [Markup.button.callback("🏠 Bosh menu", "menu_main")],
+        ]),
       );
     } catch (error) {
-      console.error('Error sending end of day qazo status:', error);
+      console.error("Error sending end of day qazo status:", error);
     }
   }
 
